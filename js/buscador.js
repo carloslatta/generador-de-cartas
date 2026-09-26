@@ -371,19 +371,32 @@
    * flujo YGOPRODeck→Yugipedia de siempre (sin cambios).
    * ========================================================= */
   var indiceListo = false;
-  var indiceLista = [];   // [{id, name, nt}] con nt = name normalizado
+  var indiceLista = [];   // [{id, name, es, nt, ntes}] con nt = name normalizado, ntes = es normalizado
+  var indicePromesa = null;
 
   function cargarIndice() {
-    return fetch(proxyBase + "/cards.json")
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j || !j.cards || !j.cards.length) { return; }
-        indiceLista = j.cards.map(function (c) {
-          return { id: c.id, name: c.name, nt: normalizar(c.name) };
-        });
-        indiceListo = true;
-      })
-      .catch(function () { /* sin índice: se usa el flujo de siempre */ });
+    if (!indicePromesa) {
+      indicePromesa = fetch(proxyBase + "/cards.json")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (j && j.cards && j.cards.length) {
+            indiceLista = j.cards.map(function (c) {
+              return { id: c.id, name: c.name, es: c.es || "", nt: normalizar(c.name), ntes: normalizar(c.es) };
+            });
+            indiceListo = true;
+          }
+        })
+        .catch(function () { /* sin índice: se usa el flujo de siempre */ });
+    }
+    return indicePromesa;
+  }
+
+  function esperarIndice(ms) {
+    return new Promise(function (resolve) {
+      if (indiceListo) { resolve(); return; }
+      var t = setTimeout(function () { resolve(); }, ms || 4000);
+      cargarIndice().then(function () { clearTimeout(t); resolve(); });
+    });
   }
 
   function contarTokens(nt, tq) {
@@ -393,7 +406,14 @@
     return v;
   }
 
-  /* Devuelve top candidatos [{id,name,score}] del índice local, o [] si no hay match útil. */
+  /* Devuelve top candidatos [{id,name,score}] del índice local, o [] si no hay match útil.
+   * Puntúa contra el nombre ES (es) y el EN (name); manda el mejor de ambos. */
+  function scoreMax(e, nq) {
+    var sEN = e.nt ? scoreNombre(e.nt, nq) : 0;
+    var sES = e.ntes ? scoreNombre(e.ntes, nq) : -1;
+    return Math.max(sEN, sES);
+  }
+
   function buscarIndice(nq) {
     if (!indiceListo) { return []; }
     var tq = tokenizar(nq);
@@ -401,9 +421,11 @@
     var mejor = 0;
     for (var i = 0; i < indiceLista.length; i++) {
       var e = indiceLista[i];
-      var s = scoreNombre(e.nt, nq);
+      var s = scoreMax(e, nq);
       if (s < 2) { continue; }
-      var count = contarTokens(e.nt, tq);
+      var cEN = contarTokens(e.nt, tq);
+      var cES = e.ntes ? contarTokens(e.ntes, tq) : -1;
+      var count = Math.max(cEN, cES);
       if (!porId[e.id] || s > porId[e.id].score) {
         porId[e.id] = { id: e.id, name: e.name, score: s, count: count };
       }
@@ -432,21 +454,23 @@
 
   function buscar(q) {
     var nq = normalizar(q);
-    var candidatos = buscarIndice(nq);
-    var fallback = function (cards) { return repartirYGOPRODeck(q, nq, cards); };
-    if (candidatos.length) {
-      return Promise.all(candidatos.map(constDelIndice)).then(function (cartas) {
-        var vistos = {};
-        var buenas = cartas.filter(function (c) {
-          if (!c || !c.password || vistos[c.password]) { return false; }
-          vistos[c.password] = true;
-          return true;
+    return esperarIndice().then(function () {
+      var candidatos = buscarIndice(nq);
+      var fallback = function (cards) { return repartirYGOPRODeck(q, nq, cards); };
+      if (candidatos.length) {
+        return Promise.all(candidatos.map(constDelIndice)).then(function (cartas) {
+          var vistos = {};
+          var buenas = cartas.filter(function (c) {
+            if (!c || !c.password || vistos[c.password]) { return false; }
+            vistos[c.password] = true;
+            return true;
+          });
+          if (buenas.length) { return buenas; }
+          return buscarYGOPRODeck(nq).then(fallback);
         });
-        if (buenas.length) { return buenas; }
-        return buscarYGOPRODeck(nq).then(fallback);
-      });
-    }
-    return buscarYGOPRODeck(nq).then(fallback);
+      }
+      return buscarYGOPRODeck(nq).then(fallback);
+    });
   }
 
   function repartirYGOPRODeck(q, nq, cards) {

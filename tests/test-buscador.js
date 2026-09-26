@@ -19,5 +19,7 @@ function probar(q) {
 
 probar("Blue Eyes White Dragon")
   .then(function () { return probar("Dragón Alternativo de Ojos Azules"); })
+  .then(function () { return probar("mago oscuro"); })
+  .then(function () { return probar("Dark Magician"); })
   .then(function () { return probar("Polimerización"); })
   .then(function () { return probar("zzz no existe esta carta"); });
