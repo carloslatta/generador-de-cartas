@@ -25,7 +25,9 @@
     FIRE: "assets/icons/attr_FIRE.png",
     LIGHT: "assets/icons/attr_LIGHT.png",
     WATER: "assets/icons/attr_WATER.png",
-    WIND: "assets/icons/attr_WIND.png"
+    WIND: "assets/icons/attr_WIND.png",
+    SPELL: "assets/icons/attr_SPELL.png",
+    TRAP: "assets/icons/attr_TRAP.png"
   };
   var TIPOS_ES = {
     "Fiend": "Demonio",
