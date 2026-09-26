@@ -1572,8 +1572,6 @@ window.exportarPNGGlobal = function (nombre) {
       });
     });
   };
-})();
-
   // Re-render cuando las fuentes de carta terminan de cargar (misma práctica que renderer.js)
   // Esto soluciona el bug donde el nombre queda "pequeño" o tapado si las fuentes
   // aún no han cargado al momento de medir (tanto en uso manual como en test).
@@ -1585,9 +1583,10 @@ window.exportarPNGGlobal = function (nombre) {
     });
   }
 
-window.construirCajas = construirCajas;
-window.render = render;
-window.CONFIG = window.CONFIG || {};
-window.CARD = window.CARD || {};
-window.CARTAS = window.CARTAS || {};
-window.LAYOUTS = window.LAYOUTS || {};
+  window.construirCajas = construir;
+  window.render = render;
+  window.CONFIG = window.CONFIG || {};
+  window.CARD = window.CARD || {};
+  window.CARTAS = window.CARTAS || {};
+  window.LAYOUTS = window.LAYOUTS || {};
+})();
