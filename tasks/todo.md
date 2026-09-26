@@ -1,0 +1,22 @@
+# Tareas
+
+- [ ] Crear esqueleto del renderer (HTML + CSS + JS, sin build)
+  - Accept: index.html muestra carta base + cajas superpuestas según layout JSON
+  - Verify: abrir index.html en navegador; activar modo debug
+  - Files: index.html, css/card.css, js/renderer.js, js/layouts.js, js/content.js
+- [ ] Calibrar coordenadas contra la carta base provista por el usuario
+  - Accept: cada caja cae exactamente sobre su región en la imagen real
+  - Verify: revisión visual con modo debug
+  - Files: js/layouts.js (+ imagen en assets/base/)
+- [ ] Documentar procedimiento de calibración
+  - Accept: docs/CALIBRACION.md con pasos reproducibles
+  - Verify: seguir los pasos para una carta nueva hipotética
+  - Files: docs/CALIBRACION.md
+- [ ] Panel de edición de contenido en vivo
+  - Accept: cambiar nombre/arte/texto/ATK/DEF actualiza la carta sin tocar el layout
+  - Verify: editar inputs y observar la carta
+  - Files: index.html, css/editor.css, js/renderer.js
+- [ ] Automatización: crear cartas nuevas duplicando contenido
+  - Accept: una segunda carta se crea editando solo content.js
+  - Verify: render de la segunda carta con las mismas posiciones
+  - Files: js/content.js

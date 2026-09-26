@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador de Decks — YGOProDeck</title>
+  <link rel="stylesheet" href="css/card.css">
+  <style>
+    body { background:#2a2a35; color:#eee; font-family:"Segoe UI",Arial,sans-serif; padding:24px; margin:0; }
+    h1 { margin:0 0 16px; font-size:22px; }
+    .toolbar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+    .toolbar input[type="text"] { flex:1 1 280px; padding:9px 10px; font-size:15px; border-radius:6px; border:1px solid #555; background:#1d1d26; color:#eee; }
+    .toolbar select { padding:8px; font-size:14px; border-radius:6px; border:1px solid #555; background:#1d1d26; color:#eee; }
+    button { padding:9px 16px; border-radius:6px; border:0; background:#3a7d5c; color:#fff; cursor:pointer; font-size:14px; font-weight:600; }
+    button.sec { background:#4a5568; }
+    button.ghost { background:transparent; border:1px solid #555; color:#ccc; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-top:16px; }
+    .card-thumb { background:#1d1d26; border-radius:10px; overflow:hidden; border:1px solid #333; transition:transform .15s, box-shadow .15s; }
+    .card-thumb:hover { transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,0,0,.5); }
+    .card-thumb img { width:100%; height:auto; display:block; }
+    .card-thumb.thumb-vista .box img { width:auto; height:auto; max-width:100%; max-height:100%; }
+    .card-thumb .meta { padding:8px; font-size:12px; color:#aaa; }
+    .card-thumb .meta b { color:#fff; font-size:13px; }
+    .card-thumb .count { position:absolute; top:6px; right:6px; background:#e53e3e; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; }
+    .stats { margin-top:12px; font-size:13px; color:#aaa; }
+    .stats b { color:#fff; }
+    .loading { text-align:center; padding:40px; color:#888; }
+    .empty { text-align:center; padding:40px; color:#666; }
+    .deck-info { margin-top:12px; padding:12px; background:#1d1d26; border-radius:8px; font-size:13px; color:#ccc; }
+    .deck-info b { color:#fff; }
+  </style>
+</head>
+<body>
+  <h1>Generador de Decks — YGOProDeck</h1>
+  <div class="toolbar">
+    <input id="search" type="text" placeholder="Buscar deck/arquetipo… (ej: Exodia, Dragon Link, Spright)" autofocus>
+    <select id="banlist">
+      <option value="tcg">TCG (Advanced)</option>
+      <option value="ocg">OCG</option>
+      <option value="goat">Goat Format</option>
+    </select>
+    <button id="btn-search" class="sec">Buscar mazos</button>
+    <button id="btn-generate" class="ghost" style="display:none">Generar 40 cartas</button>
+    <button id="btn-export" class="ghost" style="display:none">Exportar ZIP</button>
+  </div>
+  <div class="deck-info" id="deckInfo" style="display:none"></div>
+  <p id="estado" style="margin-top:12px;font-size:13px;color:#aaa;"></p>
+  <div class="grid" id="grid"></div>
+  <p class="loading" id="loading" style="display:none">Cargando…</p>
+  <p class="empty" id="empty" style="display:none">No se encontraron mazos. Prueba otro término.</p>
+  <script src="js/content.js"></script>
+  <script src="js/layouts.js"></script>
+  <script src="js/deck.js"></script>
+</body>
+</html>

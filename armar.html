@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Armar cartas — Yugipedia</title>
+  <link rel="stylesheet" href="css/card.css">
+  <style>
+    body {
+      background: #2a2a35;
+      color: #eee;
+      font-family: "Segoe UI", Arial, sans-serif;
+      padding: 24px;
+      margin: 0;
+    }
+    h1 { margin: 0 0 14px; font-size: 22px; }
+    p { margin: 4px 0; }
+    .buscar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .buscar input[type="text"] {
+      flex: 1 1 340px;
+      padding: 9px 10px;
+      font-size: 15px;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background: #1d1d26;
+      color: #eee;
+    }
+    button {
+      padding: 9px 16px;
+      border-radius: 6px;
+      border: 0;
+      background: #3a7d5c;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    button.sec { background: #4a5568; }
+    button.aceptar { background: #2f6f4f; font-size: 15px; }
+    select {
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background: #1d1d26;
+      color: #eee;
+      max-width: 420px;
+    }
+    .layout {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      margin-top: 8px;
+    }
+    #preview {
+      position: relative;
+      width: 375px;
+      height: calc(375px * 1720 / 1180);
+      overflow: hidden;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      background: #222;
+      flex: 0 0 auto;
+    }
+    .info { flex: 1 1 300px; min-width: 260px; }
+    .fila-lbl { margin: 6px 0; font-size: 13px; color: #bbbbc8; white-space: pre-wrap; }
+    .fila-lbl b { color: #fff; }
+    .archivo-lbl { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+    #fich {
+      flex: 1 1 240px;
+      padding: 7px 9px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background: #1d1d26;
+      color: #eee;
+    }
+    .nota { font-size: 12px; color: #7f8a9a; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Armar cartas desde Yugipedia</h1>
+  <div class="buscar">
+    <input id="q" type="text" placeholder="Busca una carta… (ej: Stardust Dragon, Call of the Haunted)" autofocus>
+    <button id="btn-buscar">Buscar</button>
+    <select id="resultados"></select>
+    <button id="btn-armar" class="sec">Armar carta</button>
+    <button id="btn-guardar" class="aceptar" style="display:none">Guardar PNG</button>
+  </div>
+  <div class="layout">
+    <div id="preview"><div id="card" class="card"></div></div>
+    <div class="info">
+      <div class="fila-lbl" id="info-nombre"><b>—</b></div>
+      <div class="fila-lbl" id="info-detalles"></div>
+      <div class="archivo-lbl">
+        <label for="fich">Archivo:</label>
+        <input id="fich" type="text" placeholder="Nombre del PNG (sin extensión)">
+      </div>
+      <div class="fila-lbl" id="estado"></div>
+      <p class="nota">
+        Se guarda en la carpeta <b>cartas/</b> del proyecto como PNG 2360×3440,
+        con el nombre que pongas en «Archivo».
+        El layout se muestra sin imagen de arte.
+      </p>
+    </div>
+  </div>
+  <script src="js/content.js"></script>
+  <script src="js/layouts.js"></script>
+  <script src="js/armar.js"></script>
+</body>
+</html>

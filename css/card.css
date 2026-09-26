@@ -1,0 +1,336 @@
+@font-face {
+  font-family: fontCardName;
+  src: url("../assets/fonts/YGOSmallCaps.ttf");
+}
+@font-face {
+  font-family: fontCardNameHashFix;
+  src: url("../assets/fonts/YGOSmallCapsHashFix.ttf");
+}
+@font-face {
+  font-family: fontCardEffect;
+  src: url("../assets/fonts/YGO_Card_NA.ttf");
+}
+@font-face {
+  font-family: fontCardType;
+  src: url("../assets/fonts/StoneSerifSmallCapsBold.ttf");
+}
+@font-face {
+  font-family: fontATKValue;
+  src: url("../assets/fonts/MatrixRegular.ttf");
+}
+@font-face {
+  font-family: fontLink;
+  src: url("../assets/fonts/FOT-KafuTechnoStd-H.otf");
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  background: #2a2a35;
+  color: #eee;
+}
+
+.app {
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+  min-height: 100vh;
+  align-items: flex-start;
+}
+
+.card-area {
+  flex: 0 1 auto;
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-clip {
+  position: relative;
+  width: 375px;
+  height: calc(375px * 1720 / 1180);
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+.card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1180px;
+  height: 1720px;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  transform: scale(0.3178);
+  transform-origin: top left;
+  font-family: fontCardEffect;
+}
+
+.marco {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  z-index: 2;
+}
+
+.capa-arte,
+.capa-front {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.capa-arte {
+  z-index: 1;
+}
+
+.capa-front {
+  z-index: 3;
+}
+
+.box {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.box-arte,
+.box-p-arte {
+  z-index: 1;
+}
+
+.card.debug .box {
+  border: 2px dashed #00ffff;
+  background: rgba(0, 255, 255, 0.07);
+}
+
+.card.debug .box::after {
+  content: attr(data-nombre);
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 26px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: #00ffff;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 4px 8px;
+  pointer-events: none;
+}
+
+.box-nombre {
+  justify-content: flex-start;
+  align-items: center;
+  padding-left: 2%;
+  overflow: hidden;
+  font-family: fontCardName;
+  font-size: 116px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-atributo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.box-nivel {
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.box-nivel img {
+  height: 100%;
+  width: auto;
+  display: block;
+}
+
+.box-arte img,
+.box-p-arte img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.box-rango {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
+}
+
+.box-rango img {
+  height: 100%;
+  width: auto;
+  display: block;
+}
+
+.box-cardtype {
+  justify-content: flex-end;
+  align-items: center;
+  font-family: fontCardType;
+  font-weight: bold;
+  font-size: 54px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-subtipo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.box-link-label,
+.box-link {
+  font-family: fontLink;
+  font-size: 44px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-link-label {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.box-link {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.box-pscale-l,
+.box-pscale-r {
+  font-family: fontATKValue;
+  font-size: 66px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-ptexto {
+  justify-content: flex-start;
+  align-items: flex-start;
+  font-size: 34px;
+  font-style: normal;
+  color: #000;
+  text-align: left;
+  line-height: 1;
+  padding: 0;
+}
+
+.box-f-ul img,
+.box-f-u img,
+.box-f-ur img,
+.box-f-l img,
+.box-f-r img,
+.box-f-dl img,
+.box-f-d img,
+.box-f-dr img {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  display: block;
+}
+
+.box-numeroserie {
+  justify-content: flex-end;
+  align-items: center;
+  font-size: 30px;
+  line-height: 1.1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-tipo {
+  justify-content: flex-start;
+  align-items: center;
+  font-family: fontCardType;
+  font-weight: bold;
+  font-size: 42px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-texto {
+  justify-content: flex-start;
+  align-items: flex-start;
+  font-size: 40px;
+  font-style: italic;
+  color: #000;
+  text-align: left;
+  line-height: 1;
+  padding: 0;
+}
+
+.box-atk-label,
+.box-def-label {
+  font-family: fontCardName;
+  font-size: 62px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-atk,
+.box-def {
+  justify-content: flex-end;
+  align-items: center;
+  font-family: fontATKValue;
+  font-size: 62px;
+  line-height: 1;
+  color: #000;
+  white-space: nowrap;
+}
+
+.box-password {
+  justify-content: flex-start;
+  align-items: center;
+  font-size: 28px;
+  line-height: 1.1;
+  color: #000;
+  white-space: nowrap;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.box-copyright {
+  justify-content: flex-end;
+  align-items: center;
+  font-size: 28px;
+  line-height: 1.1;
+  color: #000;
+  white-space: nowrap;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.estado {
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 12px;
+  color: #9aa;
+  margin: 0;
+  text-align: center;
+}

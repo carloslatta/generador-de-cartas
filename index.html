@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador de cartas Yu-Gi-Oh</title>
+  <link rel="stylesheet" href="css/card.css">
+  <link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+  <div class="app">
+    <main class="card-area">
+      <div id="card-clip" class="card-clip">
+        <div id="card" class="card"></div>
+      </div>
+      <p id="estado" class="estado"></p>
+    </main>
+
+    <aside class="panel">
+      <h1>Contenido de la carta</h1>
+      <div class="fila zoom">
+        <span class="rotulo">Preview:</span>
+        <button id="f-alejar" type="button">Alejar</button>
+        <button id="f-acercar" type="button">Acercar</button>
+        <button id="f-escala-reset" type="button">Reset</button>
+        <span id="f-escala-val" class="valor"></span>
+      </div>
+      <label>Bajar contenido (marco fijo)
+        <input id="f-desplazar" type="range" min="0" max="200" step="1" value="0">
+        <span id="f-desplazar-val" class="valor"></span>
+      </label>
+      <label>Carta (preset)
+        <select id="f-carta"></select>
+      </label>
+      <label>Nombre
+        <input id="f-nombre" type="text">
+      </label>
+      <label>Atributo
+        <input id="f-atributo" type="text" list="dl-atributo">
+      </label>
+      <label>Nivel (estrellas)
+        <input id="f-nivel" type="number" min="0" max="12">
+      </label>
+      <label>Rango (Xyz)
+        <input id="f-rango" type="number" min="0" max="12">
+      </label>
+      <label>Link (rating)
+        <input id="f-link" type="number" min="0" max="6">
+      </label>
+      <label>Flechas Link (U, UL, UR, L, R, DL, D, DR)
+        <input id="f-flechas" type="text" list="dl-flechas" placeholder="ej.: Up,UpLeft,UpRight">
+      </label>
+      <label>Subtipo Mágica/Trampa
+        <input id="f-subtipo" type="text" list="dl-subtipo" placeholder="Equip, Field, Quick-Play, Continuous, Ritual, Counter">
+      </label>
+      <label>Tipo
+        <input id="f-tipo" type="text" list="dl-tipo">
+      </label>
+      <label>Habilidad
+        <input id="f-habilidad" type="text">
+      </label>
+      <label>Texto
+        <textarea id="f-texto" rows="6"></textarea>
+      </label>
+      <label>Texto péndulo
+        <textarea id="f-ptexto" rows="3"></textarea>
+      </label>
+      <label>Escala péndulo
+        <input id="f-pscale" type="number" min="1" max="13">
+      </label>
+      <fieldset id="ajuste-pendulo" class="ajuste-pendulo" style="display:none">
+        <legend>Ajuste de arte (solo péndulo)</legend>
+        <label>Posición Y (enfoque)
+          <input id="f-art-pos" type="range" min="-50" max="50" step="1" value="0">
+        </label>
+        <label>Zoom
+          <input id="f-art-zoom" type="range" min="100" max="300" step="5" value="100">
+        </label>
+        <div class="fila">
+          <button id="f-art-guardar" type="button">Guardar</button>
+          <button id="f-art-reiniciar" type="button">Restablecer</button>
+        </div>
+      </fieldset>
+      <fieldset id="ajuste-estrellas" style="display:none">
+        <legend>Ajuste de estrellas</legend>
+        <label>Mover estrellas (horizontal)
+          <input id="f-estrellas" type="range" min="-100" max="100" step="1" value="0">
+          <span id="f-estrellas-val" class="valor"></span>
+        </label>
+        <div class="fila">
+          <button id="f-estrellas-reiniciar" type="button">Restablecer</button>
+        </div>
+      </fieldset>
+      <fieldset id="ajuste-nombre" class="ajuste-nombre">
+        <legend>Ajuste de caja de nombre</legend>
+        <label>Ancho extra (ancho de la caja)
+          <input id="f-nombre-ancho" type="range" min="-150" max="1000" step="5" value="0">
+          <span id="f-nombre-ancho-val" class="valor"></span>
+        </label>
+        <div class="fila">
+          <button id="f-nombre-ancho-reiniciar" type="button">Restablecer</button>
+        </div>
+      </fieldset>
+      <fieldset id="ajuste-letras" class="ajuste-letras">
+        <legend>Aplastamiento de letras del nombre</legend>
+        <label>Compresión horizontal (independiente de la caja)
+          <input id="f-letras-factor" type="range" min="40" max="120" step="1" value="100">
+          <span id="f-letras-factor-val" class="valor"></span>
+        </label>
+        <div class="fila">
+          <button id="f-letras-reiniciar" type="button">Restablecer</button>
+        </div>
+      </fieldset>
+      <fieldset id="ajuste-atributo" class="ajuste-atributo">
+        <legend>Ajuste de atributo</legend>
+        <label>Tamaño del icono (px)
+          <input id="f-atributo-size" type="range" min="-60" max="60" step="1" value="0">
+          <span id="f-atributo-size-val" class="valor"></span>
+        </label>
+        <div class="fila">
+          <button id="f-atributo-size-reiniciar" type="button">Restablecer</button>
+        </div>
+      </fieldset>
+      <fieldset id="ajuste-cardtype" class="ajuste-cardtype">
+        <legend>Posición cardtype X</legend>
+        <label>X (porcentaje)
+          <input id="f-cardtype-x" type="range" min="40" max="65" step="0.1" value="51">
+          <span id="f-cardtype-x-val" class="valor"></span>
+        </label>
+        <div class="fila">
+          <button id="f-cardtype-x-reiniciar" type="button">Restablecer</button>
+        </div>
+      </fieldset>
+      <fieldset id="ajuste-corchete" class="ajuste-corchete">
+        <legend>Espacio corchete final</legend>
+        <label>Separación (px)
+          <input id="f-corchete-gap" type="range" min="0" max="30" step="1" value="5">
+          <span id="f-corchete-gap-val" class="valor"></span>
+        </label>
+        <div class="fila">
+          <button id="f-corchete-gap-reiniciar" type="button">Restablecer</button>
+        </div>
+      </fieldset>
+      <div class="fila">
+        <label>ATK
+          <input id="f-atk" type="number">
+        </label>
+        <label>DEF
+          <input id="f-def" type="number">
+        </label>
+      </div>
+      <label>Imagen de arte (URL o ruta)
+        <input id="f-arte" type="text">
+      </label>
+      <div class="fila">
+        <label>Título EN en Yugipedia
+          <input id="f-buscar-titulo" type="text" placeholder="Ej: Blue-Eyes Ultimate Dragon">
+        </label>
+        <button id="f-buscar-obras" type="button">Buscar obras</button>
+      </div>
+      <label>Obra elegida
+        <select id="f-obras"></select>
+      </label>
+      <div class="fila">
+        <button id="f-obras-usar" type="button">Usar en la carta</button>
+        <button id="f-obras-descargar" type="button">Guardar imagen …</button>
+      </div>
+      <fieldset id="buscar-carta" class="buscar-carta">
+        <legend>Buscar carta (autocompletar)</legend>
+        <div class="fila">
+          <label>Nombre
+            <input id="f-buscar-carta" type="text" placeholder="Ej: Blue-Eyes Ultimate Dragon">
+          </label>
+          <button id="f-buscar-carta-btn" type="button">Buscar</button>
+        </div>
+        <label>Resultado
+          <select id="f-resultados"></select>
+        </label>
+        <div class="fila">
+          <button id="f-cargar-carta" type="button">Rellenar carta</button>
+        </div>
+      </fieldset>
+      <label>Número de carta
+        <input id="f-numero" type="text">
+      </label>
+      <label>Password
+        <input id="f-password" type="text">
+      </label>
+      <label>Copyright / pie
+        <input id="f-copyright" type="text">
+      </label>
+      <datalist id="dl-atributo">
+        <option value="DARK"></option>
+        <option value="LIGHT"></option>
+        <option value="EARTH"></option>
+        <option value="WATER"></option>
+        <option value="FIRE"></option>
+        <option value="WIND"></option>
+        <option value="DIVINE"></option>
+        <option value="SPELL"></option>
+        <option value="TRAP"></option>
+      </datalist>
+      <datalist id="dl-flechas">
+        <option value="Up"></option>
+        <option value="Up,UpLeft,UpRight"></option>
+        <option value="Up,Down,Left,Right"></option>
+        <option value="Up,Down"></option>
+        <option value="Left,Right"></option>
+        <option value="All8"></option>
+        <option value="None"></option>
+      </datalist>
+      <datalist id="dl-subtipo">
+        <option value="Counter"></option>
+        <option value="Field"></option>
+        <option value="Equip"></option>
+        <option value="Continuous"></option>
+        <option value="Quick-Play"></option>
+        <option value="Ritual"></option>
+      </datalist>
+      <datalist id="dl-tipo">
+        <option value="Dragón"></option>
+        <option value="Lanzador de Conjuros"></option>
+        <option value="Guerrero"></option>
+        <option value="Bestia"></option>
+        <option value="Máquina"></option>
+        <option value="Zombi"></option>
+        <option value="Hada"></option>
+        <option value="Demonio"></option>
+      </datalist>
+      <p class="nota">Modo debug: añade <code>?debug=1</code> a la URL. Ajusta tamaño con <code>?escala=0.30</code>.</p>
+    </aside>
+  </div>
+
+  <script src="js/layouts.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/renderer.js"></script>
+</body>
+</html>
