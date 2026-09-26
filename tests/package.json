@@ -1,0 +1,15 @@
+{
+  "name": "ygo-card-generator-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tests del generador de cartas Yu-Gi-Oh!",
+  "scripts": {
+    "test": "node test-buscador.js",
+    "test:browser": "node test-descarga.js"
+  },
+  "type": "commonjs",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "puppeteer-core": "^25.12.0"
+  }
+}

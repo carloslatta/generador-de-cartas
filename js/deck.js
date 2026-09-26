@@ -20,12 +20,20 @@
     return d;
   })();
 
+  function limpiarNombre(s) {
+    return String(s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  }
+
   var currentDeck = null;
   var suggestionBox = null;
   var suggestionDebounce = null;
   var cardNameCache = [];
   var cardNameCacheLoaded = false;
-  var exportSeq = 0;
+  var deckCardCache = {};   // password -> CartaNormalizada (para reutilizar datos/ES/arte)
 
   var ATTRS = {
     DARK: "assets/icons/attr_DARK.png",
@@ -166,19 +174,22 @@
       suggestionBox.style.display = "none";
       return;
     }
-    // Usar fname para búsqueda fuzzy (prefijo) - SIN num parameter
-    api("cardinfo.php?fname=" + encodeURIComponent(query))
-      .then(function (j) {
-        var cards = j.data || [];
-        if (!cards.length) {
-          suggestionBox.style.display = "none";
-          return;
-        }
-        suggestionBox.innerHTML = cards.slice(0, 15).map(function (c) {
-          return "<div class='suggestion-item' data-name='" + c.name.replace(/'/g, "'") + "' style='padding:8px 12px;cursor:pointer;border-bottom:1px solid #333;'>" + c.name + "</div>";
-        }).join("");
-        suggestionBox.style.display = "block";
-      })
+    var fu = window.Buscador && window.Buscador.buscar
+      ? window.Buscador.buscar(query)
+      : api("cardinfo.php?fname=" + encodeURIComponent(query)).then(function (j) { return j.data || []; });
+    fu.then(function (cards) {
+      if (!cards.length) {
+        suggestionBox.style.display = "none";
+        return;
+      }
+      suggestionBox.innerHTML = cards.slice(0, 15).map(function (c) {
+        var nombre = c.nombre != null ? c.nombre : c.name;
+        var nombreEN = c.nombreEN != null ? c.nombreEN : c.name;
+        var label = nombre === nombreEN ? nombre : nombre + "  (" + nombreEN + ")";
+        return "<div class='suggestion-item' data-name='" + nombreEN.replace(/'/g, "'") + "' style='padding:8px 12px;cursor:pointer;border-bottom:1px solid #333;'>" + label + "</div>";
+      }).join("");
+      suggestionBox.style.display = "block";
+    })
       .catch(function () { suggestionBox.style.display = "none"; });
   }
 
@@ -447,15 +458,22 @@
     // Construir deck desde una lista de cartas (fallback)
     var main = [], extra = [], side = [];
     cards.forEach(function (c) {
-      var t = (c.type || "").toLowerCase();
+      var id = c.password != null ? c.password : c.id;
+      var t = (c.type || tipoDesdeNormalizada(c) || "").toLowerCase();
       var count = 3;
       if (t.includes("spell") || t.includes("trap")) count = 2;
       if (t.includes("link") || t.includes("xyz") || t.includes("synchro") || t.includes("fusion")) {
-        extra.push({ id: c.id, count: 1 });
+        extra.push({ id: id, count: 1 });
       } else {
-        main.push({ id: c.id, count: count });
+        main.push({ id: id, count: count });
       }
     });
+    if (cards[0] && cards[0].password != null) {
+      // CartaNormalizada: cachear para vistas con datos/ES/arte
+      cards.forEach(function (c) {
+        if (c.password != null) deckCardCache[c.password] = c;
+      });
+    }
     main = main.slice(0, 40);
     extra = extra.slice(0, 15);
     side = side.slice(0, 15);
@@ -478,6 +496,22 @@
     establecerEstado("Deck de “" + currentDeck.name + "” generado (" + currentDeck.main.length + " Main / " + currentDeck.extra.length + " Extra). Pulsa “Generar 40 cartas”.");
   }
 
+  function tipoDesdeNormalizada(c) {
+    if (!c || !c.frameType) return "";
+    var f = String(c.frameType);
+    if (c.esSpellTrap) return /trap/i.test(c.atributo || "") ? "Trap Card" : "Spell Card";
+    var t = f;
+    if (/link/i.test(t)) return "Link Monster";
+    if (/xyz/i.test(t)) return "Xyz Monster";
+    if (/synchro/i.test(t)) return "Synchro Monster";
+    if (/fusion/i.test(t)) return "Fusion Monster";
+    if (/ritual/i.test(t)) return "Ritual Monster";
+    if (/token/i.test(t)) return "Token";
+    if (/pendulum/i.test(t)) return /normal/i.test(t) ? "Normal Pendulum Monster" : "Pendulum Effect Monster";
+    if (/normal/i.test(t)) return "Normal Monster";
+    return "Effect Monster";
+  }
+
   function preguntarArquetipoONombre(q) {
     api("cardinfo.php?archetype=" + encodeURIComponent(q))
       .then(function (j) {
@@ -493,6 +527,29 @@
   }
 
   function preguntarPorNombre(q) {
+    if (window.Buscador && window.Buscador.buscar) {
+      window.Buscador.buscar(q).then(function (cartas) {
+        if (!cartas.length) { reservarDeck(q, []); return; }
+        var arq = cartas[0].archetype || "";
+        if (arq) {
+          establecerEstado("“" + cartas[0].nombre + "” pertenece al arquetipo “" + arq + "”, cargando cartas relacionadas…");
+          api("cardinfo.php?archetype=" + encodeURIComponent(arq))
+            .then(function (j3) {
+              var relacionadas = j3.data || [];
+              var nombre = arq + (relacionadas.length ? " Deck (Auto)" : " (solo carta)");
+              reservarDeck(q, relacionadas.length ? relacionadas : cartas, nombre);
+            })
+            .catch(function () { reservarDeck(q, cartas, arq + " (solo carta)"); });
+        } else {
+          reservarDeck(q, cartas, q + " (solo carta)");
+        }
+      })
+        .catch(function (e2) {
+          mostrarVacio(true);
+          establecerEstado("Sin resultados: " + e2.message);
+        });
+      return;
+    }
     api("cardinfo.php?fname=" + encodeURIComponent(q))
       .then(function (j2) {
         var cards = j2.data || [];
@@ -532,20 +589,47 @@
     });
 
     unique.slice(0, 60).forEach(function (c) {
-      api("cardinfo.php?id=" + c.id)
-        .then(function (j) {
-          var card = (j.data || [])[0];
-          if (!card) throw new Error("Carta no encontrada");
-          return obtenerEspanol(card.name).then(function (es) {
-            var thumb = dibujarVistaCarta(card, es, c.loc || "");
-            if (thumb) {
-              grid.appendChild(thumb);
-              ajustarEscala(thumb);
-            }
+      var lograda = null;
+      if (deckCardCache[c.id]) {
+        lograda = Promise.resolve(cartaDesdeCache(deckCardCache[c.id]));
+      } else {
+        lograda = api("cardinfo.php?id=" + c.id)
+          .then(function (j) {
+            var card = (j.data || [])[0];
+            if (!card) throw new Error("Carta no encontrada");
+            return obtenerEspanol(card.name).then(function (es) {
+              return { card: card, es: es };
+            });
+          });
+      }
+      lograda
+        .then(function (par) {
+          var thumb = dibujarVistaCarta(par.card, par.es, c.loc || "");
+          if (!thumb) return;
+          grid.appendChild(thumb);
+          return esperarFuentes().then(function () {
+            ajustarEscala(thumb);
           });
         })
         .catch(function () {});
     });
+  }
+
+  function ajPref(param) {
+    try { return localStorage.getItem(param); } catch (e) { return null; }
+  }
+
+  function leerAjustesEditor() {
+    var o = {
+      ofsY: parseInt(ajPref("ygo-offset-y"), 10) || 0,
+      anchoNombreDelta: parseInt(ajPref("ygo-nombre-ancho"), 10) || 0,
+      atributoDelta: parseInt(ajPref("ygo-atributo-size"), 10) || 0,
+      factorLetras: parseFloat(ajPref("ygo-letras-factor")),
+      cardtypeX: parseFloat(ajPref("ygo-cardtype-x")) || 51.0,
+      estrellasOffset: parseInt(ajPref("ygo-estrellas-offset"), 10) || 0
+    };
+    if (!isFinite(o.factorLetras) || o.factorLetras <= 0) o.factorLetras = 1;
+    return o;
   }
 
   function crearCajaVista(layout, caja, capa) {
@@ -560,7 +644,7 @@
     return el;
   }
 
-  function dibujarVistaCarta(card, es, loc) {
+  function construirDomCarta(card, es) {
     es = es || {};
     var tf = decidirTipoFrame(card);
     var datos = construirDatosCarta(card, es);
@@ -568,12 +652,6 @@
     var layout = window.LAYOUTS[tf.tipo];
     if (!layout) return null;
     var meta = layout.meta || {};
-
-    var thumb = document.createElement("div");
-    thumb.className = "card-thumb thumb-vista";
-    thumb.style.position = "relative";
-    thumb.style.overflow = "hidden";
-    thumb.style.aspectRatio = "1180 / 1720";
 
     var cv = document.createElement("div");
     cv.className = "card card-vista";
@@ -609,10 +687,6 @@
     if (boxes["nombre"]) {
       boxes["nombre"].textContent = carta.nombre || "";
       boxes["nombre"].style.color = cls;
-      boxes["nombre"].style.fontSize = "46px";
-      boxes["nombre"].style.letterSpacing = "0px";
-      boxes["nombre"].style.whiteSpace = "nowrap";
-      boxes["nombre"].style.textOverflow = "ellipsis";
     }
 
     if (boxes["atributo"]) {
@@ -622,8 +696,6 @@
         var ai = document.createElement("img");
         ai.src = ATTRS[claveAtr];
         ai.alt = "";
-        ai.style.maxWidth = "100%";
-        ai.style.maxHeight = "100%";
         boxes["atributo"].appendChild(ai);
       } else {
         boxes["atributo"].textContent = "";
@@ -637,7 +709,6 @@
         var st = document.createElement("img");
         st.src = LEVEL_STAR;
         st.alt = "";
-        st.style.height = "78%";
         boxes["nivel"].appendChild(st);
       }
     }
@@ -649,7 +720,6 @@
         var rkImg = document.createElement("img");
         rkImg.src = RANK_STAR;
         rkImg.alt = "";
-        rkImg.style.height = "78%";
         boxes["rango"].appendChild(rkImg);
       }
     }
@@ -678,24 +748,33 @@
         boxes["cardtype"].textContent = "[" + label + "]";
       }
       boxes["cardtype"].style.color = "#000";
-      boxes["cardtype"].style.fontSize = "34px";
       boxes["cardtype"].style.paddingLeft = meta.tipo === "trap" ? "19px" : "0";
     }
 
     if (boxes["tipo"]) {
       boxes["tipo"].textContent = "[ " + (carta.tipo || "") + " / " + (carta.habilidad || "Normal") + " ]";
       boxes["tipo"].style.color = "#000";
-      boxes["tipo"].style.fontSize = "34px";
     }
 
     if (boxes["texto"]) {
       boxes["texto"].textContent = carta.texto || "";
       boxes["texto"].style.color = "#000";
-      boxes["texto"].style.fontSize = "40px";
       boxes["texto"].style.fontStyle = (meta.esNormal || carta.habilidad === "Normal") ? "italic" : "normal";
+      boxes["texto"].style.textAlign = "left";
+      boxes["texto"].style.alignItems = "flex-start";
+      boxes["texto"].style.justifyContent = "flex-start";
+      boxes["texto"].style.lineHeight = "1";
+      boxes["texto"].style.whiteSpace = "normal";
     }
 
-    if (boxes["ptexto"]) boxes["ptexto"].textContent = carta.ptexto || "";
+    if (boxes["ptexto"]) {
+      boxes["ptexto"].textContent = carta.ptexto || "";
+      boxes["ptexto"].style.textAlign = "left";
+      boxes["ptexto"].style.alignItems = "flex-start";
+      boxes["ptexto"].style.justifyContent = "flex-start";
+      boxes["ptexto"].style.lineHeight = "1";
+      boxes["ptexto"].style.whiteSpace = "normal";
+    }
     if (boxes["pscale-l"]) boxes["pscale-l"].textContent = carta.pscale || "";
     if (boxes["pscale-r"]) boxes["pscale-r"].textContent = carta.pscale || "";
     if (boxes["atk-label"]) boxes["atk-label"].textContent = "ATK/";
@@ -718,6 +797,69 @@
     if (boxes["password"]) boxes["password"].textContent = carta.password || "";
     if (boxes["copyright"]) boxes["copyright"].textContent = "©1996-2026 Konami";
 
+    aplicarAjustesEditor(cv, boxes, layout, meta);
+
+    return cv;
+  }
+
+  function aplicarAjustesEditor(cv, boxes, layout, meta) {
+    var aj = leerAjustesEditor();
+    var tipo = meta.tipo || "monstruo";
+
+    if (aj.ofsY !== 0) {
+      cv.querySelector(".capa-arte").style.transform = "translateY(" + aj.ofsY + "px)";
+      cv.querySelector(".capa-front").style.transform = "translateY(" + aj.ofsY + "px)";
+    }
+
+    if (aj.anchoNombreDelta !== 0 && boxes["nombre"]) {
+      var defN = layout.nombre;
+      if (defN) {
+        var basePx = defN.w / 100 * 1180;
+        var nuevoAncho = basePx + aj.anchoNombreDelta;
+        var MAX_ANCHO = basePx + 375;
+        if (nuevoAncho > MAX_ANCHO) nuevoAncho = MAX_ANCHO;
+        if (nuevoAncho < 100) nuevoAncho = 100;
+        boxes["nombre"].style.width = nuevoAncho + "px";
+      }
+    }
+
+    if (aj.atributoDelta !== 0 && boxes["atributo"]) {
+      var defA = layout.atributo;
+      if (defA) {
+        var px = defA.w / 100 * 1180 + aj.atributoDelta;
+        var centroX = (defA.x + defA.w / 2) / 100 * 1180;
+        var centroY = (defA.y + defA.h / 2) / 100 * 1720;
+        boxes["atributo"].style.left = (centroX - px / 2) + "px";
+        boxes["atributo"].style.top = (centroY - px / 2) + "px";
+        boxes["atributo"].style.width = px + "px";
+        boxes["atributo"].style.height = px + "px";
+      }
+    }
+
+    if (boxes["cardtype"] && (tipo === "spell" || tipo === "trap")) {
+      boxes["cardtype"].style.left = aj.cardtypeX + "%";
+      if (boxes["subtipo"]) {
+        boxes["subtipo"].style.left = (aj.cardtypeX + 30.02) + "%";
+      }
+    }
+
+    if (aj.estrellasOffset !== 0) {
+      if (boxes["nivel"]) boxes["nivel"].style.transform = "translateX(" + aj.estrellasOffset + "px)";
+      if (boxes["rango"]) boxes["rango"].style.transform = "translateX(" + aj.estrellasOffset + "px)";
+    }
+  }
+
+  function dibujarVistaCarta(card, es, loc) {
+    var cv = construirDomCarta(card, es);
+    if (!cv) return null;
+    es = es || {};
+
+    var thumb = document.createElement("div");
+    thumb.className = "card-thumb thumb-vista";
+    thumb.style.position = "relative";
+    thumb.style.overflow = "hidden";
+    thumb.style.aspectRatio = "1180 / 1720";
+
     thumb.appendChild(cv);
 
     var metaDiv = document.createElement("div");
@@ -739,47 +881,342 @@
       var sc = w / 1180;
       var cv = thumb.querySelector(".card-vista");
       if (cv) {
+        ajustarVista(cv);
         cv.style.transform = "scale(" + sc + ")";
         thumb.style.height = Math.round(1720 * sc) + "px";
       }
     });
   }
 
+  function ajustarVista(cv) {
+    var boxes = cv.querySelectorAll(".box");
+    var tEl = cv.querySelector(".box-texto");
+    var pEl = cv.querySelector(".box-ptexto");
+    var nEl = cv.querySelector(".box-nombre");
+    if (tEl) ajustarTextoVista(tEl, 40);
+    if (pEl) ajustarTextoVista(pEl, 34);
+    if (nEl) ajustarNombreVista(nEl);
+  }
+
+  function esperarFuentes() {
+    if (!document.fonts || !document.fonts.ready) return Promise.resolve();
+    return Promise.race([
+      document.fonts.ready,
+      new Promise(function (r) { setTimeout(r, 4000); })
+    ]);
+  }
+
+  function ajustarTextoVista(el, sizeIni) {
+    var size = sizeIni;
+    el.style.fontSize = size + "px";
+    while (el.scrollHeight > el.clientHeight && size > 10) {
+      size -= 1;
+      el.style.fontSize = size + "px";
+    }
+  }
+
+  function ajustarNombreVista(el) {
+    el.style.letterSpacing = "0px";
+    el.style.transform = "none";
+    el.style.transformOrigin = "left center";
+    var texto = (el.textContent || "").trim();
+    if (!texto) return;
+
+    var cs = getComputedStyle(el);
+    var anchoDisponible = el.clientWidth;
+    var limiteAtributo = 978;
+    var cajaIzq = el.offsetLeft || 0;
+    var maxUtil = limiteAtributo - cajaIzq;
+    if (maxUtil > 0 && anchoDisponible > maxUtil) {
+      anchoDisponible = maxUtil;
+    }
+    if (!(anchoDisponible > 0)) return;
+
+    var medidor = document.createElement("span");
+    medidor.style.visibility = "hidden";
+    medidor.style.position = "absolute";
+    medidor.style.whiteSpace = "nowrap";
+    medidor.style.fontFamily = cs.fontFamily;
+    medidor.style.fontWeight = cs.fontWeight;
+    medidor.style.letterSpacing = "0px";
+    medidor.textContent = texto;
+    document.body.appendChild(medidor);
+
+    try {
+      var fontSize = 116;
+      medidor.style.fontSize = fontSize + "px";
+      var anchoTextoReal = medidor.getBoundingClientRect().width;
+
+      if (anchoTextoReal > anchoDisponible) {
+        var mejorLetterSpacing = 0;
+        var ls;
+        for (ls = -1; ls >= -8; ls--) {
+          medidor.style.letterSpacing = ls + "px";
+          var nuevoAncho = medidor.getBoundingClientRect().width;
+          mejorLetterSpacing = ls;
+          anchoTextoReal = nuevoAncho;
+          if (nuevoAncho <= anchoDisponible) break;
+        }
+        el.style.letterSpacing = mejorLetterSpacing + "px";
+      }
+
+      if (anchoTextoReal > anchoDisponible) {
+        for (fontSize = 115; fontSize >= 80; fontSize--) {
+          medidor.style.fontSize = fontSize + "px";
+          anchoTextoReal = medidor.getBoundingClientRect().width;
+          if (anchoTextoReal <= anchoDisponible) break;
+        }
+        el.style.fontSize = fontSize + "px";
+      }
+
+      var factorLetras = leerAjustesEditor().factorLetras;
+      var fl = (isFinite(factorLetras) && factorLetras > 0) ? factorLetras : 1;
+      if (fl !== 1 || anchoTextoReal > anchoDisponible) {
+        var escalaX = Math.min(fl, anchoDisponible / anchoTextoReal);
+        el.style.transform = "scaleX(" + escalaX + ")";
+        el.style.transformOrigin = "left center";
+      }
+    } finally {
+      document.body.removeChild(medidor);
+    }
+  }
+
   function generarMazo() {
     if (!currentDeck) return;
-    establecerEstado("Generando cartas del mazo…");
+
+    var carpetaNombre = (window.prompt("¿En qué carpeta guardar el mazo? (Dejar vacío = nombre del mazo)", "") || "").trim();
+    if (!carpetaNombre) carpetaNombre = (currentDeck.name || "mazo").replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_").slice(0, 60) || "mazo";
+
+    establecerEstado("Guardando cartas del mazo… en cartas/" + carpetaNombre);
+
+    var unicas = [];
+    var vistos = {};
     var allCards = [];
     if (currentDeck.main) allCards = allCards.concat(currentDeck.main);
     if (currentDeck.extra) allCards = allCards.concat(currentDeck.extra);
     if (currentDeck.side) allCards = allCards.concat(currentDeck.side);
+    allCards.forEach(function (c) {
+      if (!vistos[c.id]) { vistos[c.id] = true; unicas.push(c); }
+    });
 
-    var total = allCards.length;
-    var done = 0;
+    var total = unicas.length;
+    var done = 0, fallas = 0;
 
     function siguiente(idx) {
-      if (idx >= allCards.length) {
-        establecerEstado("¡Mazo generado! " + done + " cartas.");
+      if (idx >= unicas.length) {
+        establecerEstado("Mazo guardado: " + done + " cartas en cartas/" + carpetaNombre + (fallas ? " (" + fallas + " fallaron)" : "") + ".");
         return;
       }
-      var c = allCards[idx];
-      generarCarta(c.id, c.count || 1).then(function () {
-        done++;
-        establecerEstado("Generando… " + done + "/" + total);
+      guardarUnaCarta(unicas[idx], carpetaNombre).then(function (ok) {
+        done += ok ? 1 : 0;
+        if (!ok) fallas++;
+        establecerEstado("Guardando… " + (done + fallas) + "/" + total);
         siguiente(idx + 1);
-      }).catch(function () { siguiente(idx + 1); });
+      });
     }
     siguiente(0);
   }
 
-  function generarCarta(id, count) {
-    return api("cardinfo.php?id=" + id)
+  function guardarUnaCarta(c, carpetaNombre) {
+    if (deckCardCache[c.id]) {
+      var par = cartaDesdeCache(deckCardCache[c.id]);
+      var cv = construirDomCarta(par.card, par.es);
+      if (!cv) return Promise.resolve(false);
+      return exportarPNGDataURL(cv).then(function (dataUrl) {
+        return fetch("/guardar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            carpeta: carpetaNombre,
+            nombre: (par.es.nombre || par.card.name) + " [" + (c.loc || "") + "]",
+            png: dataUrl
+          })
+        }).then(function (r) { return r.json(); }).then(function (res) {
+          return !!res.ok;
+        });
+      }).catch(function () { return false; });
+    }
+    return api("cardinfo.php?id=" + c.id)
       .then(function (j) {
         var card = (j.data || [])[0];
         if (!card) throw new Error("Carta no encontrada");
         return obtenerEspanol(card.name).then(function (es) {
-          return armarCartaDesdeAPI(card, count, es);
+          var cv = construirDomCarta(card, es);
+          if (!cv) throw new Error("Sin layout");
+          return exportarPNGDataURL(cv).then(function (dataUrl) {
+            return fetch("/guardar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                carpeta: carpetaNombre,
+                nombre: (es.nombre || card.name) + " [" + (c.loc || "") + "]",
+                png: dataUrl
+              })
+            }).then(function (r) { return r.json(); }).then(function (res) {
+              return !!res.ok;
+            });
+          });
         });
+      })
+      .catch(function () { return false; });
+  }
+
+  function exportarPNGDataURL(cv) {
+    var montaje = document.createElement("div");
+    montaje.style.cssText = "position:fixed;top:0;left:0;width:1180px;height:1720px;pointer-events:none;visibility:hidden;z-index:-1;";
+    montaje.appendChild(cv);
+    document.body.appendChild(montaje);
+    function desmontar() {
+      if (montaje.parentNode) montaje.parentNode.removeChild(montaje);
+    }
+    return esperarFuentes().then(function () {
+      return new Promise(function (r) { setTimeout(r, 150); });
+    }).then(function () {
+      ajustarVista(cv);
+      inlineEstilosVista(cv);
+      cv.style.transform = "none";
+      cv.style.transformOrigin = "0 0";
+      var clon = cv.cloneNode(true);
+      var caja = document.createElement("div");
+      caja.setAttribute("style", "width:1180px;height:1720px;transform:scale(2);transform-origin:0 0;");
+      caja.appendChild(clon);
+      var sinImgenes = Array.prototype.slice.call(clon.querySelectorAll("img"));
+      return Promise.all(sinImgenes.map(function (img) {
+        var src = img.getAttribute("src") || "";
+        if (!src) { img.removeAttribute("src"); return Promise.resolve(); }
+        return leerImagenVista(src).then(function (u) {
+          img.setAttribute("src", u);
+        }).catch(function () { img.remove(); });
+      })).then(function () {
+        return reemplazarFondosVista(clon);
+      }).then(function () {
+        return fuentesInlineVista();
+      }).then(function (fuentes) {
+        return cssPaginaVista().then(function (css) {
+          var svg = '<?xml version="1.0" encoding="utf-8"?>' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="2360" height="3440">' +
+            "<style>" + css + fuentes + "</style>" +
+            '<foreignObject width="2360" height="3440">' + new XMLSerializer().serializeToString(caja) + "</foreignObject></svg>";
+          var urlSvg = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+          var im = new Image();
+          return new Promise(function (res, rej) {
+            im.onload = function () {
+              var cv2 = document.createElement("canvas");
+              cv2.width = 2360;
+              cv2.height = 3440;
+              var ctx = cv2.getContext("2d");
+              ctx.drawImage(im, 0, 0, 2360, 3440);
+              res(cv2.toDataURL("image/png"));
+            };
+            im.onerror = function () { rej(new Error("SVG no se renderizó")); };
+            im.src = urlSvg;
+          });
+        });
+      }).then(function (dataUrl) {
+        desmontar();
+        return dataUrl;
+      }, function (e) {
+        desmontar();
+        throw e;
       });
+    });
+  }
+
+  function blobToDataURLVista(b) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(fr.result); };
+      fr.onerror = rej;
+      fr.readAsDataURL(b);
+    });
+  }
+
+  function leerImagenVista(src) {
+    return fetch(/^https?:/i.test(src) ? "/obra?url=" + encodeURIComponent(src) : src)
+      .then(function (r) {
+        if (!r.ok) throw new Error("img " + r.status);
+        return r.blob();
+      })
+      .then(blobToDataURLVista);
+  }
+
+  function inlineEstilosVista(el) {
+    var cs = getComputedStyle(el);
+    el.setAttribute("style", (el.getAttribute("style") || "") + ";" + cs.cssText);
+    Array.prototype.forEach.call(el.children, inlineEstilosVista);
+  }
+
+  function cssPaginaVista() {
+    var links = Array.prototype.map.call(document.querySelectorAll('link[rel="stylesheet"]'), function (l) {
+      return l.getAttribute("href") || "";
+    }).filter(Boolean);
+    return Promise.all(links.map(function (href) {
+      return fetch(href).then(function (r) { return r.ok ? r.text() : ""; }).catch(function () { return ""; });
+    })).then(function (textos) {
+      var extra = "";
+      Array.prototype.forEach.call(document.querySelectorAll("style"), function (s) {
+        extra += "\n" + s.textContent;
+      });
+      return textos.concat([extra]).join("\n").replace(/@font-face\s*\{[^}]*\}/g, "");
+    });
+  }
+
+  function reemplazarFondosVista(el) {
+    var bg = (el.style && el.style.backgroundImage) || "";
+    var p = (bg && bg !== "none" && bg.match(/url\(\s*["']?([^"')]+)["']?\s*\)/))
+      ? leerImagenVista(bg.match(/url\(\s*["']?([^"')]+)["']?\s*\)/)[1]).then(function (u) {
+        el.style.backgroundImage = "url(" + u + ")";
+      }).catch(function () { el.style.backgroundImage = "none"; })
+      : Promise.resolve();
+    return p.then(function () {
+      var hijos = Array.prototype.slice.call(el.children);
+      var q = [];
+      hijos.forEach(function (h) { q.push(reemplazarFondosVista(h)); });
+      return Promise.all(q);
+    });
+  }
+
+  function fuentesInlineVista() {
+    var defs = [
+      ["fontCardName", "assets/fonts/YGOSmallCaps.ttf", "truetype"],
+      ["fontCardNameHashFix", "assets/fonts/YGOSmallCapsHashFix.ttf", "truetype"],
+      ["fontCardType", "assets/fonts/StoneSerifSmallCapsBold.ttf", "truetype"],
+      ["fontCardEffect", "assets/fonts/YGO_Card_NA.ttf", "truetype"],
+      ["fontATKValue", "assets/fonts/MatrixRegular.ttf", "truetype"],
+      ["fontLink", "assets/fonts/FOT-KafuTechnoStd-H.otf", "opentype"]
+    ];
+    return Promise.all(defs.map(function (d) {
+      return fetch(d[1]).then(function (r) { return r.blob(); })
+        .then(blobToDataURLVista)
+        .then(function (url) {
+          return '@font-face{font-family:"' + d[0] + '";src:url(' + url + ') format("' + d[2] + '");}';
+        })
+        .catch(function () { return ""; });
+    })).then(function (partes) { return partes.join(""); });
+  }
+
+  /* Convierte una CartaNormalizada (del Buscador) a la forma { card, es }
+   * que esperan construirDomCarta/renderDeckPreview. `card` conserva los
+   * campos que lee decidirTipoFrame y construirDatosCarta. */
+  function cartaDesdeCache(c) {
+    var tipoStr = tipoDesdeNormalizada(c) || (c.esSpellTrap ? "Spell Card" : "Effect Monster");
+    var card = {
+      id: c.password,
+      name: c.nombreEN || c.nombre,
+      type: tipoStr,
+      race: c.tipo || (c.esSpellTrap ? c.subtipo : ""),
+      attribute: c.atributo || "",
+      level: c.nivel || 0,
+      rank: c.rango || 0,
+      linkval: c.link || 0,
+      scale: c.pscale || "",
+      atk: c.atk || "",
+      def: c.def || "",
+      desc: c.texto || "",
+      card_images: [ { image_url_cropped: c.arte, image_url: c.arte } ]
+    };
+    var es = { nombre: c.nombre, texto: c.texto, ptexto: c.ptexto };
+    return { card: card, es: es };
   }
 
   function decidirTipoFrame(card) {
@@ -816,7 +1253,7 @@
       tipo: TIPOS_ES[card.race] || card.race || "",
       habilidad: habTokens.join(" / ") || "Normal",
       carta: {
-        nombre: es.nombre || card.name,
+        nombre: limpiarNombre(es.nombre || card.name),
         atributo: card.attribute || "",
         nivel: card.level || 0,
         rango: card.rank || 0,
@@ -836,39 +1273,23 @@
     };
   }
 
-  function armarCartaDesdeAPI(card, count, es) {
-    var tf = decidirTipoFrame(card);
-    var datos = construirDatosCarta(card, es);
-    var carta = datos.carta;
-
-    window.CONFIG.base = tf.frame;
-    window.CONFIG.layout = tf.tipo;
-    window.CARD = carta;
-
-    if (typeof construirCajas === "function") construirCajas();
-    if (typeof render === "function") render();
-
-    return exportarPNG(es.nombre || card.name);
-  }
-
-  function exportarPNG(nombre) {
-    return new Promise(function (resolve) {
-      exportSeq++;
-      var n = String(nombre)
-        .replace(/[\\/:*?"<>|]/g, "")
-        .trim()
-        .slice(0, 80) + "_" + String(exportSeq).padStart(3, "0");
-      if (typeof exportarPNGGlobal === "function") {
-        exportarPNGGlobal(n).then(resolve).catch(function () { resolve(); });
-      } else {
-        setTimeout(resolve, 100);
-      }
-    });
-  }
-
   btnSearch.addEventListener("click", buscarMazos);
   search.addEventListener("keydown", function (e) { if (e.key === "Enter") buscarMazos(); });
   btnGenerate.addEventListener("click", generarMazo);
   btnExport.addEventListener("click", function () { alert("Exportar ZIP próximamente"); });
   initAutocomplete();
+
+  var CLAVES_SYNC = [
+    "ygo-offset-y",
+    "ygo-nombre-ancho",
+    "ygo-atributo-size",
+    "ygo-letras-factor",
+    "ygo-cardtype-x",
+    "ygo-estrellas-offset"
+  ];
+  window.addEventListener("storage", function (e) {
+    if (CLAVES_SYNC.indexOf(e.key) !== -1 && currentDeck) {
+      renderDeckPreview(currentDeck);
+    }
+  });
 })();

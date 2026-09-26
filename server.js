@@ -29,7 +29,8 @@ function mime(p) {
 function send(res, codigo, cuerpo, tipo) {
   res.writeHead(codigo, {
     "Content-Type": tipo,
-    "Access-Control-Allow-Origin": "*"
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "no-store"
   });
   res.end(cuerpo);
 }
@@ -97,12 +98,20 @@ const server = http.createServer(async (req, res) => {
           return send(res, 400, "png invalido", "text/plain");
         }
         const buf = Buffer.from(b64.split(",")[1], "base64");
-        const dir = path.join(ROOT, "cartas");
+        let dir = path.join(ROOT, "cartas");
+        if (data.carpeta) {
+          const carpeta = String(data.carpeta).replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_").slice(0, 60) || "deck";
+          dir = path.join(dir, carpeta);
+        }
         fs.mkdirSync(dir, { recursive: true });
-        const seguro = nombre.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, "_") || "carta";
-        const archivo = seguro + ".png";
+        let seguro = nombre.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, "_") || "carta";
+        if (!/\.png$/i.test(seguro)) {
+          seguro += ".png";
+        }
+        const archivo = seguro;
         fs.writeFileSync(path.join(dir, archivo), buf);
-        send(res, 200, JSON.stringify({ ok: true, archivo: archivo }), "application/json");
+        const rel = data.carpeta ? path.join(String(data.carpeta).replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_").slice(0, 60) || "deck", archivo) : archivo;
+        send(res, 200, JSON.stringify({ ok: true, archivo: rel }), "application/json");
       } catch (e) {
         send(res, 500, "error: " + e.message, "text/plain");
       }

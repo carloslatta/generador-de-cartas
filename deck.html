@@ -17,8 +17,7 @@
     .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-top:16px; }
     .card-thumb { background:#1d1d26; border-radius:10px; overflow:hidden; border:1px solid #333; transition:transform .15s, box-shadow .15s; }
     .card-thumb:hover { transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,0,0,.5); }
-    .card-thumb img { width:100%; height:auto; display:block; }
-    .card-thumb.thumb-vista .box img { width:auto; height:auto; max-width:100%; max-height:100%; }
+    .card-thumb:not(.thumb-vista) img { width:100%; height:auto; display:block; }
     .card-thumb .meta { padding:8px; font-size:12px; color:#aaa; }
     .card-thumb .meta b { color:#fff; font-size:13px; }
     .card-thumb .count { position:absolute; top:6px; right:6px; background:#e53e3e; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; }
@@ -48,6 +47,7 @@
   <div class="grid" id="grid"></div>
   <p class="loading" id="loading" style="display:none">Cargando…</p>
   <p class="empty" id="empty" style="display:none">No se encontraron mazos. Prueba otro término.</p>
+  <script src="js/buscador.js"></script>
   <script src="js/content.js"></script>
   <script src="js/layouts.js"></script>
   <script src="js/deck.js"></script>

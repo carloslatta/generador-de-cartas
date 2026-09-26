@@ -84,6 +84,12 @@
   var busquedaToken = 0;
   var armarToken = null;
   var armarProgramado = null;
+  var cartasBuscador = {};   // nombreEN -> CartaNormalizada (para armar sin wikitexto)
+  var FLECHA_MAP_YGO = {
+    "Top": "Up", "Bottom": "Down", "Left": "Left", "Right": "Right",
+    "Top-Left": "UpLeft", "Top-Right": "UpRight",
+    "Bottom-Left": "DownLeft", "Bottom-Right": "DownRight"
+  };
 
   var ALIASES = {
     "llamada de los condenados": "Call of the Haunted",
@@ -719,6 +725,28 @@ try {
       });
   }
 
+  function arteDesdeYGOProDeck(password, nombreIgles) {
+    var consulta = null;
+    if (password && /^\d+$/.test(password)) {
+      consulta = "cardinfo.php?id=" + encodeURIComponent(password);
+    } else if (nombreIgles) {
+      consulta = "cardinfo.php?name=" + encodeURIComponent(nombreIgles);
+    }
+    if (!consulta) { return Promise.resolve(null); }
+    return fetch("/api?url=" + encodeURIComponent("https://db.ygoprodeck.com/api/v7/" + consulta), { headers: { "User-Agent": "YGODeckGenerator/1.0" } })
+      .then(function (r) {
+        if (!r.ok) { return null; }
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j || !j.data || !j.data.length) { return null; }
+        var card = j.data[0];
+        if (!card.card_images || !card.card_images.length) { return null; }
+        return card.card_images[0].image_url_cropped || card.card_images[0].image_url || null;
+      })
+      .catch(function () { return null; });
+  }
+
   function detallesDeCarta(c) {
     var meta = (window.LAYOUTS[window.CONFIG.layout] || {}).meta || {};
     var piezas = [];
@@ -733,8 +761,97 @@ try {
     return piezas.join(" · ");
   }
 
+  /* ---------- armar desde CartaNormalizada (Buscador) ---------- */
+
+  function armarDesdeBuscador(c, opts) {
+    opts = opts || {};
+    armarToken = c.nombreEN || c.nombre;
+    estado.textContent = (opts.auto ? "Previsualizando " : "Cargando ") + (c.nombre || c.nombreEN) + "…";
+    var layout = layoutDesdeBuscador(c);
+    var base = window.CONFIG_BASE[layout] || "assets/base/monster_normal.png";
+    window.CONFIG.base = base;
+    window.CONFIG.layout = layout;
+    window.CARD = cartaDesdeBuscador(c);
+    construir();
+    render();
+    infoNombre.textContent = c.nombre || c.nombreEN || "";
+    infoDetalles.textContent = detallesDeCarta(window.CARD);
+    if (!fich.value || fich.dataset.tocado !== "1") {
+      fich.value = (c.nombre || c.nombreEN || "carta").replace(/[\\/:*?"<>|]+/g, "_");
+    }
+    fich.dataset.tocado = "0";
+    btnGuardar.style.display = "";
+    if (c.arte) {
+      window.CARD.arte = c.arte;
+      render();
+      estado.textContent = "Lista con artwork. Guarda el PNG.";
+    } else {
+      estado.textContent = "Lista (sin artwork). Guarda el PNG.";
+    }
+  }
+
+  function layoutDesdeBuscador(c) {
+    if (c.esSpellTrap) {
+      return c.atributo === "TRAP" || (c.frameType || "").indexOf("trap") !== -1 ? "trampa" : "magica";
+    }
+    var ft = String(c.frameType || "");
+    var pendulo = ft.indexOf("pendulum") !== -1;
+    if (pendulo) {
+      return /normal/i.test(c.habilidad) ? "pendulum-normal" : "pendulum-efecto";
+    }
+    if (/link/i.test(ft)) { return "monstruo-link"; }
+    if (/xyz/i.test(ft)) { return "monstruo-xyz"; }
+    if (/ritual/i.test(ft)) { return "monstruo-ritual"; }
+    if (/fusion/i.test(ft)) { return "monstruo-fusion"; }
+    if (/synchro/i.test(ft)) { return "monstruo-synchro"; }
+    if (/token/i.test(ft) || /token/i.test(c.habilidad)) { return "monstruo-token"; }
+    if (c.habilidad === "Normal" || /normal/i.test(ft)) { return "monstruo-normal"; }
+    return "monstruo-efecto";
+  }
+
+  function cartaDesdeBuscador(c) {
+    var es = c.esSpellTrap;
+    var base = {
+      nombre: c.nombre || c.nombreEN || "",
+      atributo: es ? (c.atributo === "SPELL" ? "SPELL" : "TRAP") : (c.atributo || ""),
+      subtipo: es ? (c.subtipo || "") : "",
+      habilidad: es ? "" : (c.habilidad || "Normal"),
+      tipo: es ? "" : (c.tipo || ""),
+      texto: c.texto || "",
+      atk: es ? "" : (c.atk != null ? c.atk : ""),
+      def: es ? "" : (c.link ? "" : (c.def != null ? c.def : "")),
+      arte: "",
+      numero: "",
+      password: c.password || "",
+      copyright: "©1996-2026 Konami"
+    };
+    if (es) { return base; }
+    var ft = String(c.frameType || "").toLowerCase();
+    if (ft.indexOf("pendulum") !== -1) {
+      base.pscale = c.pscale || "";
+      base.ptexto = c.ptexto || "";
+    }
+    if (ft.indexOf("link") !== -1) {
+      base.link = c.link || 0;
+      base.flechas = (c.linkmarkers || []).map(function (m) {
+        return FLECHA_MAP_YGO[m] || null;
+      }).filter(Boolean).join(",");
+      base.def = "";
+    } else if (ft.indexOf("xyz") !== -1) {
+      base.rango = c.rango || 0;
+    } else if (c.nivel) {
+      base.nivel = c.nivel;
+    }
+    return base;
+  }
+
   function armarCarta(titulo, opts) {
     opts = opts || {};
+    var cartaBuscador = cartasBuscador[titulo];
+    if (cartaBuscador) {
+      armarDesdeBuscador(cartaBuscador, opts);
+      return;
+    }
     armarToken = titulo;
     estado.textContent = (opts.auto ? "Previsualizando " : "Cargando ") + titulo + "…";
     obtenerWikitexto(titulo, "")
@@ -756,7 +873,11 @@ try {
         fich.dataset.tocado = "0";
         btnGuardar.style.display = "";
         estado.textContent = "Lista. Buscando artwork…";
-        return cargarMejorObra(r.titulo);
+        var nombreIgles = campo(r.wt, "name") || r.titulo;
+        return arteDesdeYGOProDeck(d.carta.password, nombreIgles)
+          .then(function (url) {
+            return url || cargarMejorObra(r.titulo);
+          });
       })
       .then(function (urlObra) {
         if (urlObra) {
@@ -796,13 +917,29 @@ try {
 
   function inlineEstilos(el) {
     var cs = getComputedStyle(el);
-    el.setAttribute("style", cs.cssText);
+    var previo = el.getAttribute("style") || "";
+    var css = (cs.cssText || "").trim();
+    el.setAttribute("style", [previo, css].filter(Boolean).join(";"));
     Array.prototype.forEach.call(el.children, inlineEstilos);
   }
 
+  function cssPagina() {
+    var links = Array.prototype.map.call(document.querySelectorAll('link[rel="stylesheet"]'), function (l) {
+      return l.getAttribute("href") || "";
+    }).filter(Boolean);
+    return Promise.all(links.map(function (href) {
+      return fetch(href).then(function (r) { return r.ok ? r.text() : ""; }).catch(function () { return ""; });
+    })).then(function (textos) {
+      var extra = "";
+      Array.prototype.forEach.call(document.querySelectorAll("style"), function (s) {
+        extra += "\n" + s.textContent;
+      });
+      return textos.concat([extra]).join("\n").replace(/@font-face\s*\{[^}]*\}/g, "");
+    });
+  }
+
   async function reemplazarFondos(el) {
-    var cs = getComputedStyle(el);
-    var bg = cs.backgroundImage;
+    var bg = (el.style && el.style.backgroundImage) || "";
     if (bg && bg !== "none") {
       var m = bg.match(/url\(\s*["']?([^"')]+)["']?\s*\)/);
       if (m) {
@@ -841,7 +978,7 @@ try {
   }
 
   function xmlSerializar(el) {
-    return el.outerHTML;
+    return new XMLSerializer().serializeToString(el);
   }
 
   async function exportarPNG() {
@@ -852,65 +989,79 @@ try {
     ]);
     await new Promise(function (r) { setTimeout(r, 150); });
 
-    inlineEstilos(card);
-    card.style.transform = "none";
-    card.style.transformOrigin = "0 0";
+    var montaje = document.createElement("div");
+    montaje.setAttribute("style", "position:fixed;top:0;left:0;width:1180px;height:1720px;pointer-events:none;visibility:hidden;z-index:-1;");
+    var fuente = card.cloneNode(true);
+    montaje.appendChild(fuente);
+    document.body.appendChild(montaje);
 
-    var clon = card.cloneNode(true);
+    try {
+      inlineEstilos(fuente);
+      fuente.style.transform = "none";
+      fuente.style.transformOrigin = "0 0";
 
-    var imgs = Array.prototype.slice.call(clon.querySelectorAll("img"));
-    await Promise.all(imgs.map(async function (img) {
-      var src = img.getAttribute("src") || "";
-      if (!src) {
-        img.removeAttribute("src");
-        return;
-      }
-      try {
-        img.setAttribute("src", await leerImagen(src));
-      } catch (e) {
-        img.remove();
-      }
-    }));
-    await reemplazarFondos(clon);
+      var clon = fuente.cloneNode(true);
 
-    var fuentes = await fuentesInline();
+      var imgs = Array.prototype.slice.call(clon.querySelectorAll("img"));
+      await Promise.all(imgs.map(async function (img) {
+        var src = img.getAttribute("src") || "";
+        if (!src) {
+          img.removeAttribute("src");
+          return;
+        }
+        try {
+          img.setAttribute("src", await leerImagen(src));
+        } catch (e) {
+          img.remove();
+        }
+      }));
+      await reemplazarFondos(clon);
 
-    var caja = document.createElement("div");
-    caja.setAttribute("style", "width:1180px;height:1720px;transform:scale(2);transform-origin:0 0;");
-    caja.appendChild(clon);
+      var fuentes = await fuentesInline();
+      var css = await cssPagina();
 
-    var svg = '<?xml version="1.0" encoding="utf-8"?>' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="2360" height="3440">' +
-      "<style>" + fuentes + "</style>" +
-      '<foreignObject width="2360" height="3440">' + xmlSerializar(caja) + "</foreignObject></svg>";
+      var caja = document.createElement("div");
+      caja.setAttribute("style", "width:1180px;height:1720px;transform:scale(2);transform-origin:0 0;");
+      caja.appendChild(clon);
 
-    var blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-    var urlSvg = URL.createObjectURL(blob);
+      var svg = '<?xml version="1.0" encoding="utf-8"?>' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="2360" height="3440">' +
+        "<style>" + css + fuentes + "</style>" +
+        '<foreignObject width="2360" height="3440">' + xmlSerializar(caja) + "</foreignObject></svg>";
 
-    var im = new Image();
-    await new Promise(function (res, rej) {
-      im.onload = res;
-      im.onerror = function () { rej(new Error("el SVG no se renderizó")); };
-      im.src = urlSvg;
-    });
+      var urlSvg = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 
-    var cv = document.createElement("canvas");
-    cv.width = 2360;
-    cv.height = 3440;
-    var ctx = cv.getContext("2d");
-    ctx.drawImage(im, 0, 0, 2360, 3440);
-    URL.revokeObjectURL(urlSvg);
+      var im = new Image();
+      await new Promise(function (res, rej) {
+        im.onload = res;
+        im.onerror = function () { rej(new Error("el SVG no se renderizó")); };
+        im.src = urlSvg;
+      });
 
-    return cv.toDataURL("image/png");
+      var cv = document.createElement("canvas");
+      cv.width = 2360;
+      cv.height = 3440;
+      var ctx = cv.getContext("2d");
+      ctx.drawImage(im, 0, 0, 2360, 3440);
+
+      return cv.toDataURL("image/png");
+    } finally {
+      document.body.removeChild(montaje);
+    }
   }
 
   function guardarPNG() {
     var nombre = (fich.value || window.CARD.nombre || "carta").trim();
+    var carpeta = (window.prompt("¿En qué carpeta guardar la carta? (Dejar vacío = cartas/)", "") || "").trim();
     exportarPNG().then(function (dataUrl) {
       return fetch("/guardar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre: nombre + ".png", png: dataUrl })
+        body: JSON.stringify({
+          carpeta: carpeta || undefined,
+          nombre: nombre + ".png",
+          png: dataUrl
+        })
       }).then(function (r) {
         return r.json();
       }).then(function (res) {
@@ -1065,7 +1216,38 @@ try {
       return;
     }
     estado.textContent = "Buscando \u201C" + busq + "\u201D\u2026";
-    api("action=query&format=json&list=search&srnamespace=0&srlimit=10&srsearch=" + encodeURIComponent(busq))
+    if (window.Buscador && window.Buscador.buscar) {
+      return window.Buscador.buscar(busq).then(function (cartas) {
+        if (token !== busquedaToken) { return; }
+        if (cartas && cartas.length) {
+          cartasBuscador = {};
+          cartas.forEach(function (c) {
+            cartasBuscador[c.nombreEN || c.nombre] = c;
+          });
+          rellenarResultados(
+            cartas.map(function (c) {
+              var label = c.nombre;
+              if (c.nombreEN && c.nombreEN !== c.nombre) { label += "  (" + c.nombreEN + ")"; }
+              return { value: c.nombreEN || c.nombre, label: label };
+            }),
+            cartas[0].nombreEN || cartas[0].nombre,
+            autoArmar
+          );
+          return;
+        }
+        return buscarYugipediaViejo(busq, token, autoArmar);
+      }).catch(function () {
+        if (token === busquedaToken) {
+          return buscarYugipediaViejo(busq, token, autoArmar);
+        }
+      });
+    }
+    return buscarYugipediaViejo(busq, token, autoArmar);
+  }
+
+  function buscarYugipediaViejo(busq, token, autoArmar) {
+    cartasBuscador = {};
+    return api("action=query&format=json&list=search&srnamespace=0&srlimit=10&srsearch=" + encodeURIComponent(busq))
       .then(function (j) {
         if (token !== busquedaToken) { return; }
         var hits = j.query.search || [];
@@ -1195,10 +1377,10 @@ window.exportarPNGGlobal = function (nombre) {
     }).then(function () {
       // inline estilos
       var cs = getComputedStyle(card);
-      card.setAttribute("style", cs.cssText);
+      card.setAttribute("style", [card.getAttribute("style") || "", cs.cssText || ""].filter(Boolean).join(";"));
       Array.prototype.forEach.call(card.children, function inline(el) {
         var cs = getComputedStyle(el);
-        el.setAttribute("style", cs.cssText);
+        el.setAttribute("style", [el.getAttribute("style") || "", cs.cssText || ""].filter(Boolean).join(";"));
         Array.prototype.forEach.call(el.children, inline);
       });
 
@@ -1220,8 +1402,7 @@ window.exportarPNGGlobal = function (nombre) {
     }).then(function () {
       // reemplazar fondos
       function reemplazarFondos(el) {
-        var cs = getComputedStyle(el);
-        var bg = cs.backgroundImage;
+        var bg = (el.style && el.style.backgroundImage) || "";
         if (bg && bg !== "none") {
           var m = bg.match(/url\(\s*["']?([^"')]+)["']?\s*\)/);
           if (m) {
@@ -1261,31 +1442,31 @@ window.exportarPNGGlobal = function (nombre) {
           .catch(function () { return ""; });
       })).then(function (partes) { return partes.join(""); });
     }).then(function (fuentes) {
-      var caja = document.createElement("div");
-      caja.setAttribute("style", "width:1180px;height:1720px;transform:scale(2);transform-origin:0 0;");
-      caja.appendChild(clon);
+      return cssPagina().then(function (css) {
+        var caja = document.createElement("div");
+        caja.setAttribute("style", "width:1180px;height:1720px;transform:scale(2);transform-origin:0 0;");
+        caja.appendChild(clon);
 
-      var svg = '<?xml version="1.0" encoding="utf-8"?>' +
-        '<svg xmlns="http://www.w3.org/2000/svg" width="2360" height="3440">' +
-        "<style>" + fuentes + "</style>" +
-        '<foreignObject width="2360" height="3440">' + caja.outerHTML + "</foreignObject></svg>";
+        var svg = '<?xml version="1.0" encoding="utf-8"?>' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="2360" height="3440">' +
+          "<style>" + css + fuentes + "</style>" +
+          '<foreignObject width="2360" height="3440">' + new XMLSerializer().serializeToString(caja) + "</foreignObject></svg>";
 
-      var blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-      var urlSvg = URL.createObjectURL(blob);
+        var urlSvg = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 
-      var im = new Image();
-      return new Promise(function (res, rej) {
-        im.onload = res;
-        im.onerror = function () { rej(new Error("el SVG no se renderizó")); };
-        im.src = urlSvg;
-      }).then(function () {
-        var cv = document.createElement("canvas");
-        cv.width = 2360;
-        cv.height = 3440;
-        var ctx = cv.getContext("2d");
-        ctx.drawImage(im, 0, 0, 2360, 3440);
-        URL.revokeObjectURL(urlSvg);
-        return cv.toDataURL("image/png");
+        var im = new Image();
+        return new Promise(function (res, rej) {
+          im.onload = res;
+          im.onerror = function () { rej(new Error("el SVG no se renderizó")); };
+          im.src = urlSvg;
+        }).then(function () {
+          var cv = document.createElement("canvas");
+          cv.width = 2360;
+          cv.height = 3440;
+          var ctx = cv.getContext("2d");
+          ctx.drawImage(im, 0, 0, 2360, 3440);
+          return cv.toDataURL("image/png");
+        });
       });
     });
   };
