@@ -1084,6 +1084,71 @@ try {
     });
   }
 
+  // Parser .ydk (Yu-Gi-Oh deck file)
+  function parsearYDK(text) {
+    var ids = [];
+    var lines = text.split(/\r?\n/);
+    var section = "";
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      if (line[0] === "#" || line[0] === "!") {
+        section = line;
+        continue;
+      }
+      var id = line.split(" ")[0];
+      if (/^\d+$/.test(id)) {
+        ids.push({ id: id, section: section });
+      }
+    }
+    return ids;
+  }
+
+  // Cargar cartas desde IDs de .ydk secuencialmente
+  function cargarDesdeYDK(ids) {
+    var idx = 0;
+    function siguiente() {
+      if (idx >= ids.length) {
+        estado.textContent = "Completado: " + ids.length + " carta(s) cargadas.";
+        return;
+      }
+      var item = ids[idx];
+      idx++;
+      estado.textContent = "(" + idx + "/" + ids.length + ") Buscando ID " + item.id + " (" + item.section + ")...";
+      // Buscar por password (ID numérico)
+      Buscador.buscar(item.id).then(function (resultados) {
+        if (!resultados || !resultados.length) {
+          estado.textContent = "(" + idx + "/" + ids.length + ") ID " + item.id + " no encontrado.";
+          setTimeout(siguiente, 500);
+          return;
+        }
+        var carta = resultados[0];
+        var titulo = carta.nombre || carta.ingles || item.id;
+        armarCarta(titulo, { auto: true });
+        // Esperar a que se arme y guardar automáticamente
+        var checkArmado = setInterval(function () {
+          var st = document.getElementById("estado");
+          if (st && st.textContent.indexOf("Lista con artwork") !== -1) {
+            clearInterval(checkArmado);
+            // Auto-guardar
+            var nombreArchivo = (carta.nombre || carta.ingles || "carta_" + item.id).replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
+            if (item.section) nombreArchivo = item.section.replace(/[#!]/g, "") + "_" + nombreArchivo;
+            fich.value = nombreArchivo;
+            guardarPNG();
+            // Pequeña pausa antes de la siguiente
+            setTimeout(siguiente, 800);
+          }
+        }, 500);
+        // Timeout de seguridad
+        setTimeout(function () { clearInterval(checkArmado); }, 20000);
+      }).catch(function (err) {
+        estado.textContent = "Error con ID " + item.id + ": " + err.message;
+        setTimeout(siguiente, 500);
+      });
+    }
+    siguiente();
+  }
+
   /* ---------- eventos ---------- */
 
   function rankResultados(query, hits) {
@@ -1340,6 +1405,37 @@ try {
       armarCarta(resultados.value);
     }
   });
+
+  // Cargar archivo .ydk (Yu-Gi-Oh deck file)
+  var ydkInput = document.getElementById("ydk-input");
+  var ydkLabel = document.querySelector(".ydk-wrap label");
+  if (ydkInput) {
+    ydkInput.addEventListener("change", function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (evt) {
+        var text = evt.target.result;
+        var ids = parsearYDK(text);
+        if (!ids.length) {
+          estado.textContent = "El .ydk no contiene IDs válidos.";
+          return;
+        }
+        estado.textContent = "Cargando " + ids.length + " carta(s) desde .ydk...";
+        cargarDesdeYDK(ids);
+      };
+      reader.readAsText(file);
+      // Reset para permitir recargar el mismo archivo
+      e.target.value = "";
+    });
+    // Click en el label abre el file input
+    if (ydkLabel) {
+      ydkLabel.addEventListener("click", function (e) {
+        e.preventDefault();
+        ydkInput.click();
+      });
+    }
+  }
 
   // Streaming: re-render en vivo al cambiar ajustes en el editor (otra pestaña)
   var CLAVES_SYNC = [
