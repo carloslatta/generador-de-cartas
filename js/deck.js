@@ -163,8 +163,7 @@
     if (suggestionBox) return;
     suggestionBox = document.createElement("div");
     suggestionBox.id = "suggestion-box";
-    suggestionBox.style.cssText = "position:absolute;background:#1d1d26;border:1px solid #444;border-radius:6px;max-height:240px;overflow-y:auto;width:calc(100% - 2px);z-index:1000;display:none;";
-    search.parentNode.style.position = "relative";
+    suggestionBox.style.display = "none";
     search.parentNode.appendChild(suggestionBox);
   }
 
@@ -186,7 +185,7 @@
         var nombre = c.nombre != null ? c.nombre : c.name;
         var nombreEN = c.nombreEN != null ? c.nombreEN : c.name;
         var label = nombre === nombreEN ? nombre : nombre + "  (" + nombreEN + ")";
-        return "<div class='suggestion-item' data-name='" + nombreEN.replace(/'/g, "'") + "' style='padding:8px 12px;cursor:pointer;border-bottom:1px solid #333;'>" + label + "</div>";
+        return "<div class='suggestion-item' data-name='" + nombreEN.replace(/'/g, "'") + "'>" + label + "</div>";
       }).join("");
       suggestionBox.style.display = "block";
     })

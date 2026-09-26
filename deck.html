@@ -6,38 +6,235 @@
   <title>Generador de Decks — YGOProDeck</title>
   <link rel="stylesheet" href="css/card.css">
   <style>
-    body { background:#2a2a35; color:#eee; font-family:"Segoe UI",Arial,sans-serif; padding:24px; margin:0; }
-    h1 { margin:0 0 16px; font-size:22px; }
-    .toolbar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
-    .toolbar input[type="text"] { flex:1 1 280px; padding:9px 10px; font-size:15px; border-radius:6px; border:1px solid #555; background:#1d1d26; color:#eee; }
-    .toolbar select { padding:8px; font-size:14px; border-radius:6px; border:1px solid #555; background:#1d1d26; color:#eee; }
-    button { padding:9px 16px; border-radius:6px; border:0; background:#3a7d5c; color:#fff; cursor:pointer; font-size:14px; font-weight:600; }
-    button.sec { background:#4a5568; }
-    button.ghost { background:transparent; border:1px solid #555; color:#ccc; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-top:16px; }
-    .card-thumb { background:#1d1d26; border-radius:10px; overflow:hidden; border:1px solid #333; transition:transform .15s, box-shadow .15s; }
-    .card-thumb:hover { transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,0,0,.5); }
-    .card-thumb:not(.thumb-vista) img { width:100%; height:auto; display:block; }
-    .card-thumb .meta { padding:8px; font-size:12px; color:#aaa; }
-    .card-thumb .meta b { color:#fff; font-size:13px; }
-    .card-thumb .count { position:absolute; top:6px; right:6px; background:#e53e3e; color:#fff; font-size:11px; font-weight:700; padding:2px 6px; border-radius:4px; }
-    .stats { margin-top:12px; font-size:13px; color:#aaa; }
-    .stats b { color:#fff; }
-    .loading { text-align:center; padding:40px; color:#888; }
-    .empty { text-align:center; padding:40px; color:#666; }
-    .deck-info { margin-top:12px; padding:12px; background:#1d1d26; border-radius:8px; font-size:13px; color:#ccc; }
-    .deck-info b { color:#fff; }
+    :root {
+      --bg: #23242e;
+      --bg-a: #1d1e27;
+      --card: #2a2b36;
+      --borde: #383a4a;
+      --texto: #e8e8f0;
+      --mut: #9394a8;
+      --acento: #3a9d6f;
+      --acento-osc: #2f8a5f;
+      --radio: 10px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--texto);
+      font-family: "Segoe UI", Arial, sans-serif;
+      padding: 24px;
+      margin: 0;
+      min-height: 100vh;
+    }
+    h1 { margin: 0 0 4px; font-size: 24px; font-weight: 700; letter-spacing: -.2px; }
+    .sub { margin: 0 0 20px; font-size: 13px; color: var(--mut); }
+
+    /* ---- toolbar ---- */
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 14px;
+      margin-bottom: 20px;
+      background: var(--card);
+      border: 1px solid var(--borde);
+      border-radius: var(--radio);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, .25);
+      position: relative;
+    }
+    .toolbar .campo {
+      flex: 1 1 260px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      background: var(--bg-a);
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .toolbar .campo:focus-within {
+      border-color: var(--acento);
+      box-shadow: 0 0 0 3px rgba(58, 157, 111, .2);
+    }
+    .toolbar .campo svg { flex: 0 0 auto; opacity: .55; }
+    .toolbar input[type="text"] {
+      flex: 1 1 auto;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      color: var(--texto);
+      font-size: 15px;
+      outline: none;
+      padding: 0;
+    }
+    .toolbar input::placeholder { color: #6d6e80; }
+    .select-wrap { position: relative; }
+    .select-wrap select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding: 10px 34px 10px 14px;
+      font-size: 14px;
+      border-radius: 8px;
+      border: 1px solid var(--borde);
+      background: var(--bg-a);
+      color: var(--texto);
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .select-wrap select:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+    .select-wrap svg {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      opacity: .6;
+    }
+    button {
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: var(--acento);
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: background .15s, transform .05s, border-color .15s;
+    }
+    button:hover { background: var(--acento-osc); }
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+    button.sec {
+      background: transparent;
+      border-color: var(--borde);
+      color: #cfd0dc;
+    }
+    button.sec:hover { background: #343647; }
+    button.ghost { background: transparent; border: 1px solid var(--borde); color: #ccc; }
+    button.ghost:hover { background: #343647; color: #fff; }
+
+    /* ---- autocomplete (abre hacia abajo) ---- */
+    #suggestion-box {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 14px;
+      right: 14px;
+      background: var(--card);
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 1000;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+      padding: 4px;
+    }
+    #suggestion-box .suggestion-item {
+      padding: 9px 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      color: var(--texto);
+      font-size: 14px;
+      transition: background .12s;
+    }
+    #suggestion-box .suggestion-item:hover,
+    #suggestion-box .suggestion-item[data-active] {
+      background: rgba(58, 157, 111, .18);
+    }
+    #suggestion-box .suggestion-item + .suggestion-item { border-top: 1px solid #30313e; }
+
+    /* ---- contenido ---- */
+    .deck-info {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: var(--card);
+      border: 1px solid var(--borde);
+      border-left: 3px solid var(--acento);
+      border-radius: 8px;
+      font-size: 13px;
+      color: #cfd0dc;
+    }
+    .deck-info b { color: var(--texto); }
+    #estado {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: var(--bg-a);
+      border: 1px solid var(--borde);
+      border-left: 3px solid var(--acento);
+      border-radius: 8px;
+      font-size: 13px;
+      color: #cfd0dc;
+    }
+    #estado:empty { display: none; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .card-thumb {
+      position: relative;
+      background: var(--card);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--borde);
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+    .card-thumb:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+      border-color: var(--acento);
+    }
+    .card-thumb:not(.thumb-vista) img { width: 100%; height: auto; display: block; }
+    .card-thumb .meta { padding: 9px 10px; font-size: 12px; color: var(--mut); }
+    .card-thumb .meta b { color: var(--texto); font-size: 13px; display: block; margin-bottom: 2px; }
+    .card-thumb .count {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: var(--acento-rojo, #d9534f);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .4);
+    }
+    .stats { margin-top: 12px; font-size: 13px; color: var(--mut); }
+    .stats b { color: var(--texto); }
+
+    /* ---- estados ---- */
+    .loading, .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--mut);
+      font-size: 14px;
+    }
+    .empty { color: var(--mut); }
   </style>
 </head>
 <body>
   <h1>Generador de Decks — YGOProDeck</h1>
+  <p class="sub">Busca por arquetipo, nombre de carta o deck publicado.</p>
   <div class="toolbar">
-    <input id="search" type="text" placeholder="Buscar deck/arquetipo… (ej: Exodia, Dragon Link, Spright)" autofocus>
-    <select id="banlist">
-      <option value="tcg">TCG (Advanced)</option>
-      <option value="ocg">OCG</option>
-      <option value="goat">Goat Format</option>
-    </select>
+    <div class="campo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="7"></circle>
+        <line x1="21" y1="21" x2="16" y2="16"></line>
+      </svg>
+      <input id="search" type="text" placeholder="Buscar deck/arquetipo… (ej: Exodia, Dragon Link, Spright)" autofocus>
+    </div>
+    <div class="select-wrap">
+      <select id="banlist">
+        <option value="tcg">TCG (Advanced)</option>
+        <option value="ocg">OCG</option>
+        <option value="goat">Goat Format</option>
+      </select>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M6 9l6 6 6-6"></path>
+      </svg>
+    </div>
     <button id="btn-search" class="sec">Buscar mazos</button>
     <button id="btn-generate" class="ghost" style="display:none">Generar 40 cartas</button>
     <button id="btn-export" class="ghost" style="display:none">Exportar ZIP</button>
