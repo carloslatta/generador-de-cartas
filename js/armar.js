@@ -244,9 +244,11 @@
       img.src = arte;
       img.style.visibility = "visible";
       img.style.objectFit = fit;
-      // Para p-arte (péndulos): alinear borde superior de la imagen con el borde superior del agujero
+      // Para p-arte (péndulos): mismo default que renderer.js (pos=12 -> 50% 62%)
       if (el.classList && el.classList.contains("p-arte")) {
-        img.style.objectPosition = "50% 0%";
+        img.style.objectPosition = "50% 62%";
+        img.style.transform = "scale(1)";
+        img.style.transformOrigin = "50% 50%";
       }
     } else {
       img.removeAttribute("src");
