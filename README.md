@@ -109,3 +109,7 @@ SPEC-*.md           # Specs
 ## Nota
 
 `docs/CALIBRACION.md` documenta la calibración del dibujo; `tasks/todo.md` y `plan.md` llevan el plan. `cartas/` contiene PNGs generados (ignorados por git).
+
+## Versiones
+
+Ver [CHANGELOG.md](CHANGELOG.md) para el historial de releases. La última versión definitiva es `v1.0.0`.
