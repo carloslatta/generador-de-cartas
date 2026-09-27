@@ -1,18 +1,24 @@
-# Generador de Cartas Yu-Gi-Oh!
+<p align="center">
+  <img src="assets/demo/banner.png" alt="Generador de Cartas Yu-Gi-Oh!">
+</p>
 
-[![GitHub stars](https://img.shields.io/github/stars/carloslatta/generador-de-cartas?style=for-the-badge)](https://github.com/carloslatta/generador-de-cartas/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/carloslatta/generador-de-cartas?style=for-the-badge)](https://github.com/carloslatta/generador-de-cartas/forks)
-[![GitHub Pages](https://img.shields.io/badge/demo-en%20vivo-green?style=for-the-badge)](https://carloslatta.github.io/generador-de-cartas/)
+# 🃏 Generador de Cartas Yu-Gi-Oh!
+
+[![GitHub stars](https://img.shields.io/github/stars/carloslatta/generador-de-cartas?style=for-the-badge&color=ffd75e)](https://github.com/carloslatta/generador-de-cartas/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/carloslatta/generador-de-cartas?style=for-the-badge&color=ffd75e)](https://github.com/carloslatta/generador-de-cartas/forks)
+[![GitHub Pages](https://img.shields.io/badge/demo-en%20vivo-brightgreen?style=for-the-badge)](https://carloslatta.github.io/generador-de-cartas/)
+[![Node.js](https://img.shields.io/badge/Node.js-server-blue?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
+[![Sin fines de lucro](https://img.shields.io/badge/sin%20fines%20de%20lucro-libre-yellow?style=for-the-badge)](https://github.com/carloslatta/generador-de-cartas)
 
 Generador **offline**, **gratuito** y **sin fines de lucro** para armar cartas y decks de Yu-Gi-Oh!, hecho para la comunidad. Todo corre en tu propia máquina con un servidor Node local.
 
-## Sobre el proyecto
+## 🎴 Sobre el proyecto
 
 Este proyecto nació de una necesidad muy concreta: quería generar mis propias cartas de Yu-Gi-Oh! para uso recreativo y personal. Al buscar, me topé con varios repositorios y generadores que estaban sin terminar o abandonados. En lugar de renunciar a la idea, decidí completar uno por mi cuenta, afinarlo hasta que funcionara bien y dejarlo abierto para cualquiera que tenga el mismo interés.
 
 La idea es simple: una herramienta gratuita, offline y sin fines de lucro para que cualquier fan pueda armar sus propias cartas, con datos reales (nombre, texto, estadísticas), el marco correcto y exportación en alta resolución para imprimir y jugar.
 
-## Demo en vivo
+## 🚀 Demo en vivo
 
 Puedes probar el editor de cartas sin instalar nada:
 
@@ -24,12 +30,12 @@ Puedes probar el editor de cartas sin instalar nada:
 
 > **Aviso legal:** Este proyecto es un trabajo de fans, **sin fines de lucro**, con fines de entretenimiento. No está **afiliado, patrocinado ni respaldado por Konami Digital Entertainment**. `Yu-Gi-Oh!` y todos los elementos relacionados (cartas, nombres, textos, imágenes y marcas) pertenecen a sus respectivos propietarios. La aplicación es **gratuita** y las donaciones son **voluntarias**. Las imágenes y los datos de las cartas se obtienen de **fuentes externas** (YGOPRODeck, Yugipedia, etc.) y este programa **no reclama propiedad** sobre dicho contenido; todo lo generado es solo para uso personal y de colección.
 
-## Requisitos
+## ⚙️ Requisitos
 
 - Node.js (para el servidor y los tests)
 - Google Chrome instalado en `C:/Program Files/Google/Chrome/Application/chrome.exe` (para los tests de navegador)
 
-## Cómo arrancar
+## ▶️ Cómo arrancar
 
 ```bash
 node server.js
@@ -42,7 +48,7 @@ Abrir en el navegador:
 
 El servidor expone `http://localhost:8080/api?url=...` como proxy para YGOPRODeck y Yugipedia (indispensable para buscar y bajar imágenes).
 
-## Qué funciona (verificado)
+## ✅ Qué funciona (verificado)
 
 ### Búsqueda unificada (`js/buscador.js`)
 
@@ -79,7 +85,7 @@ API pública: `window.Buscador.buscar(consulta)` → array de cartas `{nombre (E
 - Exportar: **Generar 40 cartas** (usa el armador por detrás) y **Exportar ZIP**.
 - `renderDeckPreview`: usa la CartaNormalizada del Buscador (nombre ES, texto, arte) cuando está en caché; si no, el camino viejo (`cardinfo.php?id` + `obtenerEspanol`) intacto.
 
-## Browser tests (`tests/`)
+## 🧪 Browser tests (`tests/`)
 
 Requieren el servidor corriendo (`node server.js`) y Chrome.
 
@@ -108,7 +114,7 @@ node tests/test-buscador.js
 
 Carga `mock-dom.js` + `js/buscador.js` y consulta el proxy real (requiere servidor). Corrobora el pipeline índice/YGOPRODECK/Yugipedia y el caso "sin resultados".
 
-## Estructura de carpetas
+## 🗂️ Estructura de carpetas
 
 ```
 armar.html          # Armador de cartas
@@ -132,7 +138,7 @@ SPEC-*.md           # Specs
 
 `docs/CALIBRACION.md` documenta la calibración del dibujo; `tasks/todo.md` y `plan.md` llevan el plan. `cartas/` contiene PNGs generados (ignorados por git).
 
-## Para la comunidad
+## 🤝 Para la comunidad
 
 Este proyecto es un aporte de fans para fans: gratuito, offline y sin fines de lucro.
 
@@ -140,6 +146,6 @@ Este proyecto es un aporte de fans para fans: gratuito, offline y sin fines de l
 - Encontraste un error o falta una carta → abre un [issue](https://github.com/carloslatta/generador-de-cartas/issues).
 - ¿Quieres ayudar? Mejoras, layouts nuevos, más traducciones y documentación son bienvenidos vía pull request.
 
-## Versiones
+## 📦 Versiones
 
 Ver [CHANGELOG.md](CHANGELOG.md) para el historial de releases. La última versión definitiva es `v1.0.0`.
