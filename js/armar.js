@@ -244,9 +244,22 @@
       img.src = arte;
       img.style.visibility = "visible";
       img.style.objectFit = fit;
-      // Para p-arte (péndulos): alinear borde superior de la imagen con el borde superior del agujero
-      if (el.classList && el.classList.contains("p-arte")) {
-        img.style.objectPosition = "50% 0%";
+      // Para p-arte (péndulos): tope de la imagen alineado con el tope del agujero del marco
+      // y escala anclada al tope (transform-origin 50% 0%) para que la línea superior no se mueva al hacer zoom.
+      // Lee los mismos ajustes pos/zoom que el editor (renderer.js).
+      if (el.classList && el.classList.contains("box-p-arte")) {
+        var ajuste = { pos: -50, zoom: 100 };
+        try {
+          var ajusteGuardado = JSON.parse(localStorage.getItem("ygo-art-pendulo:" + (arte || "")));
+          if (ajusteGuardado) {
+            ajuste.pos = parseInt(ajusteGuardado.pos, 10);
+            if (isNaN(ajuste.pos)) { ajuste.pos = -50; }
+            ajuste.zoom = +ajusteGuardado.zoom || 100;
+          }
+        } catch (e) {}
+        img.style.objectPosition = "50% " + (50 + ajuste.pos) + "%";
+        img.style.transform = "scale(" + (ajuste.zoom / 100) + ")";
+        img.style.transformOrigin = "50% 0%";
       }
     } else {
       img.removeAttribute("src");

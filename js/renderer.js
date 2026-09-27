@@ -436,11 +436,12 @@
   }
 
   function cargarAjusteInputs() {
-    var a = { pos: 0, zoom: 100 };
+    var a = { pos: -50, zoom: 100 };
     try {
       var g = JSON.parse(localStorage.getItem(claveAjusteArte()));
       if (g) {
-        a.pos = +g.pos || 0;
+        a.pos = parseInt(g.pos, 10);
+        if (isNaN(a.pos)) { a.pos = -50; }
         a.zoom = +g.zoom || 100;
       }
     } catch (e) {}
@@ -460,7 +461,7 @@
     var zoom = parseInt(fArtZoom.value, 10) || 100;
     img.style.objectPosition = "50% " + (50 + pos) + "%";
     img.style.transform = "scale(" + (zoom / 100) + ")";
-    img.style.transformOrigin = "50% 50%";
+    img.style.transformOrigin = "50% 0%";
   }
 
   var fNombreAncho = document.getElementById("f-nombre-ancho");
