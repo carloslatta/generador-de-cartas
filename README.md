@@ -24,7 +24,9 @@ Puedes probar el editor de cartas sin instalar nada:
 
 👉 **https://carloslatta.github.io/generador-de-cartas/**
 
-![Carta Mago Oscuro generada con esta herramienta](assets/demo/carta-mago-oscuro.png)
+<p align="center">
+  <img src="assets/demo/carta-mago-oscuro.png" alt="Carta Mago Oscuro generada con esta herramienta" width="300">
+</p>
 
 > Nota: la demo online permite diseñar la carta completa. La búsqueda de cartas en línea (índice + YGOPRODeck/Yugipedia) y el guardado de PNG requieren el servidor local (`node server.js`).
 
