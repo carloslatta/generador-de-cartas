@@ -54,16 +54,34 @@ El servidor expone `http://localhost:8080/api?url=...` como proxy para YGOPRODec
 
 ### Búsqueda unificada (`js/buscador.js`)
 
-Usado por `armar.html` y `deck.html`. Pipeta de fuentes en orden:
+Usado por `armar.html` y `deck.html`. El **índice local manda**: `cards.json` trae por carta `id`, `name_en`, `name_es`, `type`, `frameType`, `race`, `attribute`, `level`, `atk`, `def`, `link`, `linkmarkers`, `scale`, `archetype` e `img`. Con eso la plantilla se arma **sin ninguna petición de red**.
 
-1. **Índice local** `cards.json` (12.891 cartas EN, `build-cards-index.js` lo regenera) → respuestas instantáneas sin red.
-2. **YGOPRODeck** (`api.yugipedia...` vía proxy) → datos completos + texto ES + arte (imagen `images.ygoprodeck.com`).
-3. **Yugipedia** (solo traducción de nombre/texto ES) → cae cuando el nombre buscado es ES y no hay coincidencia EN.
+Pipeta de fuentes en orden:
+
+1. **Índice local** `cards.json` (14.568 cartas, 12.357 con nombre ES, ~4,2 MB; `build-cards-index.js` lo regenera) → carta completa al instante.
+2. **Yugipedia** (solo el texto de efecto en español) → se pide en segundo plano y se parchea la carta ya montada.
+3. **YGOPRODeck** (vía proxy) → solo si el índice no cubre la carta, o para el texto en inglés cuando Yugipedia no responde.
 
 API pública: `window.Buscador.buscar(consulta)` → array de cartas `{nombre (ES), nombreEN, atk, def, nivel, tipo, habilidad, texto, password, arte, frameType, atributo, escala, linkmarkers, archetype}`.
 
+- **Passcode**: teclea el ID de 8 dígitos (p. ej. `46986414`) y la carta se resuelve por `id`, sin buscar por nombre ni llamar a la API.
+- **Estadísticas variables**: la API usa `-1` para ATK/DEF que dependen de la partida; se muestran como **`?`** (y los Link no muestran DEF).
+- Latencia medida en `armar.html`: ~0,35 s de teclear a carta visible por passcode y ~0,5 s por nombre (antes: hasta 3,7 s y 10 peticiones).
 - `Buscador._estadoIndice()` → `{listo, n}` (indica si el índice local cargó).
 - Errores de red nunca rompen: cada fuente tiene fallback a la siguiente.
+
+### Regenerar el índice (`build-cards-index.js`)
+
+```bash
+# Desde el volcado local que ya tienes descargado (no hace red):
+node build-cards-index.js "C:\Users\RYZEN\Downloads\cardinfo.php"
+
+# O desde la API pública (modo original, sin User-Agent):
+node build-cards-index.js
+```
+
+El volcado se puede renombrar a `.json`: es el JSON de `cardinfo.php`, no código PHP. El script **no guarda `desc`** (el texto de efecto son 8,3 MB y solo existe en inglés): lo sigue trayendo la red en runtime. El `name_es` sale del índice de nombres de `db.ygoresources.com` (EN↔ES unidos por id interno); con `--offline` se reutiliza el `name_es` del `cards.json` anterior y no se hace ninguna petición.
+
 
 ### Armador de cartas (`armar.html`, `js/armar.js`)
 
@@ -112,9 +130,12 @@ Busca 5 cartas (`Blue Eyes White Dragon` EN, `Dragón Blanco Alternativo de Ojos
 
 ```bash
 node tests/test-buscador.js
+node tests/test-indice.js
 ```
 
-Carga `mock-dom.js` + `js/buscador.js` y consulta el proxy real (requiere servidor). Corrobora el pipeline índice/YGOPRODECK/Yugipedia y el caso "sin resultados".
+- `test-buscador.js`: carga `mock-dom.js` + `js/buscador.js` y consulta el proxy real (requiere servidor). Corrobora el pipeline índice/YGOPRODeck/Yugipedia y el caso "sin resultados".
+- `test-indice.js`: **no necesita servidor** (lee `cards.json` del disco). Corrobora el passcode (`46986414` → Mago Oscuro con nivel/tipo/atributo/atk/def/arte), el `?` de estadística variable (`10678778` Aegaion, `4280258` Apollousa link-4 sin DEF), una mágica (`24094653`), la búsqueda por nombre y el passcode inexistente.
+
 
 ## 🗂️ Estructura de carpetas
 

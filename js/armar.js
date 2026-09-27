@@ -864,11 +864,36 @@ try {
     return base;
   }
 
+  /* La traducción ES llega después (Yugipedia es lento): se parchea la carta ya
+   * montada sin volver a armarla, y solo si sigue siendo la carta activa. */
+  function aplicarTraduccionTarde(carta) {
+    if (!carta || !window.CARD) { return; }
+    if ((carta.nombreEN || carta.nombre) !== armarToken) { return; }
+    if (carta.nombre) { window.CARD.nombre = carta.nombre; }
+    if (carta.texto) { window.CARD.texto = carta.texto; }
+    if (carta.ptexto) { window.CARD.ptexto = carta.ptexto; }
+    render();
+    infoNombre.textContent = carta.nombre || carta.nombreEN || "";
+    if (!fich.value || fich.dataset.tocado !== "1") {
+      fich.value = (carta.nombre || carta.nombreEN || "carta").replace(/[\\/:*?"<>|]+/g, "_");
+    }
+  }
+
   function armarCarta(titulo, opts) {
     opts = opts || {};
     var cartaBuscador = cartasBuscador[titulo];
+    if (cartaBuscador && cartaBuscador.datosListos === false && window.Buscador && window.Buscador.hidratar) {
+      estado.textContent = "Cargando " + (cartaBuscador.nombre || titulo) + "…";
+      window.Buscador.hidratar(cartaBuscador).then(function (llena) {
+        armarDesdeBuscador(llena, opts);
+      });
+      return;
+    }
     if (cartaBuscador) {
       armarDesdeBuscador(cartaBuscador, opts);
+      if (window.Buscador && window.Buscador.traducir && !cartaBuscador.esListo) {
+        window.Buscador.traducir(cartaBuscador).then(aplicarTraduccionTarde);
+      }
       return;
     }
     armarToken = titulo;
@@ -1177,17 +1202,24 @@ try {
     });
   }
 
-  function programarArmar(titulo) {
+  /* Auto-armado: como los datos ya salen del índice local, armar es barato y solo
+   * hace falta un debounce corto para no redibujar mientras se teclea.
+   * Un passcode no es ambiguo: se arma en el acto. */
+  function programarArmar(titulo, inmediato) {
     armarProgramado = titulo;
     clearTimeout(programarArmar._t);
+    if (inmediato) {
+      if (armarToken !== titulo) { armarCarta(titulo, { auto: true }); }
+      return;
+    }
     programarArmar._t = setTimeout(function () {
       if (armarProgramado !== titulo) { return; }
       if (armarToken === titulo) { return; }
       armarCarta(titulo, { auto: true });
-    }, 650);
+    }, 200);
   }
 
-  function rellenarResultados(opciones, mejor, autoArmar) {
+  function rellenarResultados(opciones, mejor, autoArmar, inmediato) {
     resultados.textContent = "";
     opciones.forEach(function (o, i) {
       var op = document.createElement("option");
@@ -1202,7 +1234,7 @@ try {
     }
     estado.textContent = opciones.length + " resultado(s).";
     if (autoArmar && mejor) {
-      programarArmar(mejor);
+      programarArmar(mejor, inmediato);
     }
   }
 
@@ -1301,13 +1333,14 @@ try {
     }
     estado.textContent = "Buscando \u201C" + busq + "\u201D\u2026";
     if (window.Buscador && window.Buscador.buscar) {
-      return window.Buscador.buscar(busq).then(function (cartas) {
+      return window.Buscador.buscar(busq, { alEspanol: aplicarTraduccionTarde }).then(function (cartas) {
         if (token !== busquedaToken) { return; }
         if (cartas && cartas.length) {
           cartasBuscador = {};
           cartas.forEach(function (c) {
             cartasBuscador[c.nombreEN || c.nombre] = c;
           });
+          var esPasscode = /^\d{6,8}$/.test(busq);
           rellenarResultados(
             cartas.map(function (c) {
               var label = c.nombre;
@@ -1315,7 +1348,8 @@ try {
               return { value: c.nombreEN || c.nombre, label: label };
             }),
             cartas[0].nombreEN || cartas[0].nombre,
-            autoArmar
+            autoArmar,
+            esPasscode
           );
           return;
         }

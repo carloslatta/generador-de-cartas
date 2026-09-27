@@ -12,12 +12,24 @@
   var YGOPRODECK = "https://db.ygoprodeck.com/api/v7/";
   var proxyBase = (typeof window !== "undefined" && window.BASE_PROXY) || "";
 
+  /* Tope de espera por petición: una fuente lenta nunca debe colgar la búsqueda.
+   * Yugipedia es la que más se demora (wikitexto enorme), así que va más corta. */
+  var TIMEOUT_YGOPRODECK = 5000;
+  var TIMEOUT_YUGIPEDIA = 3000;
+
   function proxy(fullUrl) {
-    return fetch(proxyBase + "/api?url=" + encodeURIComponent(fullUrl), { headers: { "User-Agent": "YGODeckGenerator/1.0" } })
+    var ms = fullUrl.indexOf("yugipedia.com") !== -1 ? TIMEOUT_YUGIPEDIA : TIMEOUT_YGOPRODECK;
+    var control = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var timer = setTimeout(function () { if (control) { control.abort(); } }, ms);
+    var opciones = { headers: { "User-Agent": "YGODeckGenerator/1.0" } };
+    if (control) { opciones.signal = control.signal; }
+    return fetch(proxyBase + "/api?url=" + encodeURIComponent(fullUrl), opciones)
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
-      });
+      })
+      .then(function (j) { clearTimeout(timer); return j; },
+            function (e) { clearTimeout(timer); throw e; });
   }
 
   function normalizar(s) {
@@ -95,6 +107,13 @@
     return t.indexOf("spell") !== -1 || t.indexOf("trap") !== -1;
   }
 
+  /* La API (y el volcado que genera cards.json) usan -1 para "estadística
+   * variable": en la carta real ese valor es "?" porque depende del juego. */
+  function statVisible(v) {
+    if (v == null) { return ""; }
+    return (typeof v === "number" && v < 0) ? "?" : v;
+  }
+
   /* Convierte una carta de YGOPRODeck a CartaNormalizada.
    * Datos siempre presentes; `arte` cae a URL directa por id si falta card_images. */
   function cartaDesdeYGOPRODeck(card) {
@@ -129,8 +148,8 @@
       nivel: nivel,
       rango: rango,
       link: link,
-      atk: es ? "" : (card.atk != null ? card.atk : ""),
-      def: es ? "" : (link ? "" : (card.def != null ? card.def : "")),
+      atk: es ? "" : statVisible(card.atk),
+      def: es ? "" : (link ? "" : statVisible(card.def)),
       pscale: card.scale || 0,
       password: card.id,
       esSpellTrap: es,
@@ -364,24 +383,42 @@
   }
 
   /* =========================================================
-   * Índice local (cards.json) — caché rápida de {id, name}.
-   * Primer intento de Buscador.buscar: si hay match fuerte con
-   * el name EN oficial, se completa el detalle por id exacto.
-   * Si el índice falta, falla la carga o no acierta, se cae al
-   * flujo YGOPRODeck→Yugipedia de siempre (sin cambios).
+   * Índice local (cards.json) — fuente de verdad sin red.
+   * Trae por carta: id, name_en, name_es, type, humanReadableCardType,
+   * frameType, race, attribute, level, atk, def, link, scale, img.
+   * Con eso se arma la carta entera sin consultar ninguna API; lo único que
+   * sigue needing red es el texto de efecto (traducción ES de Yugipedia).
+   * Si el índice falta o no acierta, se cae al flujo YGOPRODeck→Yugipedia.
    * ========================================================= */
   var indiceListo = false;
-  var indiceLista = [];   // [{id, name, es, nt, ntes}] con nt = name normalizado, ntes = es normalizado
+  var indiceLista = [];   // entradas del índice + nt/ntes (nombres normalizados)
+  var indicePorId = {};   // id -> entrada del índice
   var indicePromesa = null;
+
+  /* En Node (tests) se lee del disco: la búsqueda por id debe funcionar sin servidor. */
+  function leerIndiceDeDisco() {
+    if (typeof process === "undefined" || !process.versions || !process.versions.node) { return null; }
+    try {
+      var fs = require("fs");
+      var ruta = (__dirname ? __dirname : ".") + "/../cards.json";
+      return { ok: true, json: function () { return Promise.resolve(JSON.parse(fs.readFileSync(ruta, "utf8"))); } };
+    } catch (e) {
+      return null;
+    }
+  }
 
   function cargarIndice() {
     if (!indicePromesa) {
-      indicePromesa = fetch(proxyBase + "/cards.json")
-        .then(function (r) { return r.ok ? r.json() : null; })
+      var origen = leerIndiceDeDisco() || fetch(proxyBase + "/cards.json");
+      indicePromesa = Promise.resolve(origen)
+        .then(function (r) { return r && r.ok ? r.json() : null; })
         .then(function (j) {
           if (j && j.cards && j.cards.length) {
-            indiceLista = j.cards.map(function (c) {
-              return { id: c.id, name: c.name, es: c.es || "", nt: normalizar(c.name), ntes: normalizar(c.es) };
+            indiceLista = j.cards;
+            indiceLista.forEach(function (c) {
+              c.nt = normalizar(c.name_en || c.name);
+              c.ntes = normalizar(c.name_es || c.es || "");
+              indicePorId[c.id] = c;
             });
             indiceListo = true;
           }
@@ -427,7 +464,7 @@
       var cES = e.ntes ? contarTokens(e.ntes, tq) : -1;
       var count = Math.max(cEN, cES);
       if (!porId[e.id] || s > porId[e.id].score) {
-        porId[e.id] = { id: e.id, name: e.name, score: s, count: count };
+        porId[e.id] = { id: e.id, name: e.name_en || e.name, es: e.name_es || e.es || "", score: s, count: count };
       }
       if (s > mejor) { mejor = s; }
     }
@@ -441,33 +478,143 @@
     return res.slice(0, 5);
   }
 
+  /* Datos de la carta sin traducción: una sola petición a YGOPRODeck por id.
+   * El índice local ya los trae todos; esto queda para cuando el índice no
+   * cubre la carta (passcode raro o índice viejo). */
   function constDelIndice(e) {
     return proxy(YGOPRODECK + "cardinfo.php?id=" + encodeURIComponent(e.id))
       .then(function (j) {
         if (!j || !j.data || !j.data.length) { return null; }
-        return obtenerEspanol(e.name).then(function (es) {
-          return cartaCompleta(j.data[0], es);
-        });
+        var carta = cartaDesdeYGOPRODeck(j.data[0]);
+        carta.nombreEN = j.data[0].name;
+        if (e.es) { carta.nombre = e.es; }
+        carta.esListo = false;
+        return carta;
       })
       .catch(function () { return null; });
   }
 
-  function buscar(q) {
+  /* Rellena una carta que solo tiene el índice detrás (id connu, datos fuera). */
+  function hidratar(carta) {
+    if (!carta || carta.datosListos) { return Promise.resolve(carta); }
+    return constDelIndice({ id: carta.password, es: "" })
+      .then(function (llena) {
+        if (!llena) { return carta; }
+        Object.keys(llena).forEach(function (k) { carta[k] = llena[k]; });
+        carta.datosListos = true;
+        return carta;
+      });
+  }
+
+  /* Traducción al español (Yugipedia) — lenta, así que corre aparte y parchea
+   * la carta en el sitio cuando llega, sin volver a bloquear la búsqueda.
+   * Si Yugipedia no trae el texto, se pide el original en inglés a YGOPRODeck
+   * (solo en ese caso) para que la carta nunca quede sin descripción. */
+  function aplicarEspanol(carta) {
+    if (!carta || !carta.nombreEN) { return Promise.resolve(carta); }
+    if (carta.esListo) { return Promise.resolve(carta); }
+    return obtenerEspanol(carta.nombreEN).then(function (es) {
+      if (es.nombre && es.nombre !== carta.nombreEN) { carta.nombre = es.nombre; }
+      if (es.texto) { carta.texto = es.texto; }
+      if (es.ptexto) { carta.ptexto = es.ptexto; }
+      if (carta.texto) {
+        carta.esListo = true;
+        return carta;
+      }
+      return textoEnDeRespaldo(carta).then(function () {
+        carta.esListo = true;
+        return carta;
+      });
+    }).catch(function () {
+      carta.esListo = true;
+      return carta;
+    });
+  }
+
+  function textoEnDeRespaldo(carta) {
+    return proxy(YGOPRODECK + "cardinfo.php?id=" + encodeURIComponent(carta.password || carta.nombreEN))
+      .then(function (j) {
+        if (j && j.data && j.data[0] && j.data[0].desc) { carta.texto = j.data[0].desc; }
+        return carta;
+      })
+      .catch(function () { return carta; });
+  }
+
+  /* Hidrata las 2 primeras en segundo plano: cubren el auto-armado y el primer
+   * clic del usuario. El resto se traduce bajo demanda con Buscador.traducir.
+   * El retardo evita que la traducción compita con la siguiente búsqueda
+   * mientras el usuario sigue tecleando. */
+  function hidratarEspanol(cartas, alEspanol) {
+    cartas.slice(0, 2).forEach(function (carta) {
+      if (carta.esListo) { return; }
+      setTimeout(function () {
+        aplicarEspanol(carta).then(function () {
+          if (alEspanol) { alEspanol(carta); }
+        });
+      }, 350);
+    });
+  }
+
+  /* Carta completa a partir de una entrada del índice local: cero peticiones.
+   * Reutiliza cartaDesdeYGOPRODeck sobre un objeto con la misma forma. */
+  function cartaDesdeIndice(e) {
+    var carta = cartaDesdeYGOPRODeck({
+      id: e.id,
+      name: e.name_en,
+      type: e.type,
+      frameType: e.frameType,
+      race: e.race,
+      attribute: e.attribute,
+      level: e.level,
+      atk: e.atk,
+      def: e.def,
+      linkval: e.link,
+      scale: e.scale,
+      linkmarkers: e.linkmarkers,
+      archetype: e.archetype,
+      desc: "",
+      card_images: e.img ? [{ image_url_cropped: e.img }] : []
+    });
+    carta.nombreEN = e.name_en;
+    if (e.name_es) { carta.nombre = e.name_es; }
+    carta.texto = "";
+    carta.esListo = false;
+    carta.datosListos = true;
+    carta.deIndice = true;
+    return carta;
+  }
+
+  function buscarPorId(id) {
+    var e = indicePorId[id];
+    if (!e) { return null; }
+    return cartaDesdeIndice(e);
+  }
+
+  function buscar(q, opciones) {
+    opciones = opciones || {};
+    var limpio = String(q || "").trim();
     var nq = normalizar(q);
     return esperarIndice().then(function () {
+      /* Passcode de 8 dígitos (o 6): todo sale del índice local, sin red. */
+      if (/^\d{6,8}$/.test(limpio)) {
+        var porId = buscarPorId(Number(limpio));
+        if (!porId) { return []; }
+        hidratarEspanol([porId], opciones.alEspanol);
+        return [porId];
+      }
       var candidatos = buscarIndice(nq);
       var fallback = function (cards) { return repartirYGOPRODeck(q, nq, cards); };
       if (candidatos.length) {
-        return Promise.all(candidatos.map(constDelIndice)).then(function (cartas) {
-          var vistos = {};
-          var buenas = cartas.filter(function (c) {
-            if (!c || !c.password || vistos[c.password]) { return false; }
-            vistos[c.password] = true;
-            return true;
-          });
-          if (buenas.length) { return buenas; }
-          return buscarYGOPRODeck(nq).then(fallback);
+        /* Plantilla completa desde el índice local: ni una petición por carta. */
+        var lista = [];
+        candidatos.forEach(function (c) {
+          var entrada = indicePorId[c.id];
+          if (entrada) { lista.push(cartaDesdeIndice(entrada)); }
         });
+        if (lista.length) {
+          hidratarEspanol(lista.slice(0, 2), opciones.alEspanol);
+          return lista;
+        }
       }
       return buscarYGOPRODeck(nq).then(fallback);
     });
@@ -501,6 +648,10 @@
     _buscarYGOPRODeck: buscarYGOPRODeck,
     _buscarYugipedia: buscarYugipedia,
     _buscarIndice: buscarIndice,
+    _buscarPorId: buscarPorId,
+    _cartaDesdeIndice: cartaDesdeIndice,
+    traducir: aplicarEspanol,
+    hidratar: hidratar,
     _estadoIndice: function () { return { listo: indiceListo, n: indiceLista.length }; }
   };
 
