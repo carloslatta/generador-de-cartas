@@ -1,6 +1,20 @@
 # Generador de Cartas Yu-Gi-Oh!
 
-Generador offline (servidor Node local) para armar cartas y decks de Yu-Gi-Oh!.
+[![GitHub stars](https://img.shields.io/github/stars/carloslatta/generador-de-cartas?style=for-the-badge)](https://github.com/carloslatta/generador-de-cartas/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/carloslatta/generador-de-cartas?style=for-the-badge)](https://github.com/carloslatta/generador-de-cartas/forks)
+[![GitHub Pages](https://img.shields.io/badge/demo-en%20vivo-green?style=for-the-badge)](https://carloslatta.github.io/generador-de-cartas/)
+
+Generador **offline**, **gratuito** y **sin fines de lucro** para armar cartas y decks de Yu-Gi-Oh!, hecho para la comunidad. Todo corre en tu propia máquina con un servidor Node local.
+
+## Demo en vivo
+
+Puedes probar el editor de cartas sin instalar nada:
+
+👉 **https://carloslatta.github.io/generador-de-cartas/**
+
+![Carta Mago Oscuro generada con esta herramienta](assets/demo/carta-mago-oscuro.png)
+
+> Nota: la demo online permite diseñar la carta completa. La búsqueda de cartas en línea (índice + YGOPRODeck/Yugipedia) y el guardado de PNG requieren el servidor local (`node server.js`).
 
 > **Aviso legal:** Proyecto de fans sin fines de lucro. Yu-Gi-Oh! y sus cartas, nombres e imágenes pertenecen a Konami Digital Entertainment. Este proyecto no está afiliado ni respaldado por Konami; el contenido generado es solo para uso personal y de colección.
 
@@ -111,6 +125,14 @@ SPEC-*.md           # Specs
 ## Nota
 
 `docs/CALIBRACION.md` documenta la calibración del dibujo; `tasks/todo.md` y `plan.md` llevan el plan. `cartas/` contiene PNGs generados (ignorados por git).
+
+## Para la comunidad
+
+Este proyecto es un aporte de fans para fans: gratuito, offline y sin fines de lucro.
+
+- Si te sirvió, deja una ⭐ para que llegue a más gente.
+- Encontraste un error o falta una carta → abre un [issue](https://github.com/carloslatta/generador-de-cartas/issues).
+- ¿Quieres ayudar? Mejoras, layouts nuevos, más traducciones y documentación son bienvenidos vía pull request.
 
 ## Versiones
 
