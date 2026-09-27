@@ -2,6 +2,8 @@
 
 Generador offline (servidor Node local) para armar cartas y decks de Yu-Gi-Oh!.
 
+> **Aviso legal:** Proyecto de fans sin fines de lucro. Yu-Gi-Oh! y sus cartas, nombres e imágenes pertenecen a Konami Digital Entertainment. Este proyecto no está afiliado ni respaldado por Konami; el contenido generado es solo para uso personal y de colección.
+
 ## Requisitos
 
 - Node.js (para el servidor y los tests)
