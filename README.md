@@ -16,7 +16,7 @@ Puedes probar el editor de cartas sin instalar nada:
 
 > Nota: la demo online permite diseñar la carta completa. La búsqueda de cartas en línea (índice + YGOPRODeck/Yugipedia) y el guardado de PNG requieren el servidor local (`node server.js`).
 
-> **Aviso legal:** Proyecto de fans sin fines de lucro. Yu-Gi-Oh! y sus cartas, nombres e imágenes pertenecen a Konami Digital Entertainment. Este proyecto no está afiliado ni respaldado por Konami; el contenido generado es solo para uso personal y de colección.
+> **Aviso legal:** Este proyecto es un trabajo de fans, **sin fines de lucro**, con fines de entretenimiento. No está **afiliado, patrocinado ni respaldado por Konami Digital Entertainment**. `Yu-Gi-Oh!` y todos los elementos relacionados (cartas, nombres, textos, imágenes y marcas) pertenecen a sus respectivos propietarios. La aplicación es **gratuita** y las donaciones son **voluntarias**. Las imágenes y los datos de las cartas se obtienen de **fuentes externas** (YGOPRODeck, Yugipedia, etc.) y este programa **no reclama propiedad** sobre dicho contenido; todo lo generado es solo para uso personal y de colección.
 
 ## Requisitos
 
