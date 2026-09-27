@@ -6,6 +6,12 @@
 
 Generador **offline**, **gratuito** y **sin fines de lucro** para armar cartas y decks de Yu-Gi-Oh!, hecho para la comunidad. Todo corre en tu propia máquina con un servidor Node local.
 
+## Sobre el proyecto
+
+Este proyecto nació de una necesidad muy concreta: quería generar mis propias cartas de Yu-Gi-Oh! para uso recreativo y personal. Al buscar, me topé con varios repositorios y generadores que estaban sin terminar o abandonados. En lugar de renunciar a la idea, decidí completar uno por mi cuenta, afinarlo hasta que funcionara bien y dejarlo abierto para cualquiera que tenga el mismo interés.
+
+La idea es simple: una herramienta gratuita, offline y sin fines de lucro para que cualquier fan pueda armar sus propias cartas, con datos reales (nombre, texto, estadísticas), el marco correcto y exportación en alta resolución para imprimir y jugar.
+
 ## Demo en vivo
 
 Puedes probar el editor de cartas sin instalar nada:
