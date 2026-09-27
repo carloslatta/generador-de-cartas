@@ -436,11 +436,11 @@
   }
 
   function cargarAjusteInputs() {
-    var a = { pos: 12, zoom: 100 };
+    var a = { pos: 0, zoom: 100 };
     try {
       var g = JSON.parse(localStorage.getItem(claveAjusteArte()));
       if (g) {
-        a.pos = +g.pos || 12;
+        a.pos = +g.pos || 0;
         a.zoom = +g.zoom || 100;
       }
     } catch (e) {}
