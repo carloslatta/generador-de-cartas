@@ -807,6 +807,7 @@ try {
     } else {
       estado.textContent = "Lista (sin artwork). Guarda el PNG.";
     }
+    cargarArtes(c);
   }
 
   function layoutDesdeBuscador(c) {
@@ -898,6 +899,7 @@ try {
     }
     armarToken = titulo;
     estado.textContent = (opts.auto ? "Previsualizando " : "Cargando ") + titulo + "…";
+    var enParaArtes = "";
     obtenerWikitexto(titulo, "")
       .then(function (r) {
         if (!r || !/CardTable2/i.test(r.wt)) {
@@ -918,6 +920,7 @@ try {
         btnGuardar.style.display = "";
         estado.textContent = "Lista. Buscando artwork…";
         var nombreIgles = campo(r.wt, "name") || r.titulo;
+        enParaArtes = nombreIgles;
         return arteDesdeYGOProDeck(d.carta.password, nombreIgles)
           .then(function (url) {
             return url || cargarMejorObra(r.titulo);
@@ -931,10 +934,69 @@ try {
         } else {
           estado.textContent = "Lista (sin artwork encontrado). Guarda el PNG.";
         }
+        cargarArtes(window.CARD, enParaArtes);
       })
       .catch(function (e) {
         estado.textContent = "Error: " + e.message;
       });
+  }
+
+  /* ---------- seleccionar otro artwork ---------- */
+
+  function cargarArtes(c, nombreEn) {
+    var sel = document.getElementById("selector-arte");
+    if (!sel) { return; }
+    sel.innerHTML = "";
+    var todas = [];
+    function llenar() {
+      if (!todas.length) { sel.style.display = "none"; return; }
+      var idx = todas.indexOf(window.CARD.arte);
+      sel.selectedIndex = idx >= 0 ? idx : 0;
+      sel.style.display = "";
+    }
+    sel.onchange = function () {
+      if (window.CARD && sel.value) {
+        window.CARD.arte = sel.value;
+        render();
+      }
+    };
+    var nombre = (nombreEn || c.nombreEN || window.CARD.ingles || c.nombre || "").trim();
+    var pass = String(c.password || "");
+    if (!nombre) { llenar(); return; }
+    fetch("/api?url=" + encodeURIComponent(
+      "https://db.ygoprodeck.com/api/v7/cardinfo.php?fname=" + encodeURIComponent(nombre)
+    ), { headers: { "User-Agent": "YGODeckGenerator/1.0" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var cards = (j && j.data) || [];
+        var card = cards[0];
+        if (pass && cards.length) {
+          var porPass = cards.filter(function (x) { return String(x.password || "") === pass; });
+          if (porPass.length) { card = porPass[0]; }
+          else {
+            var porUrl = cards.filter(function (x) {
+              return (x.card_images || []).some(function (im) {
+                return (im.image_url_cropped || im.image_url).indexOf(pass) !== -1;
+              });
+            });
+            if (porUrl.length) { card = porUrl[0]; }
+          }
+        }
+        if (card && card.card_images) {
+          card.card_images.forEach(function (im) {
+            var u = im.image_url_cropped || im.image_url;
+            if (u && todas.indexOf(u) === -1) {
+              todas.push(u);
+              var opt = document.createElement("option");
+              opt.value = u;
+              opt.textContent = "Artwork " + todas.length;
+              sel.appendChild(opt);
+            }
+          });
+        }
+      })
+      .catch(function () {})
+      .then(llenar);
   }
 
   /* ---------- exportar PNG ---------- */

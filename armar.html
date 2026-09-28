@@ -234,6 +234,14 @@
         <label for="fich">Archivo:</label>
         <input id="fich" type="text" placeholder="Nombre del PNG (sin extensión)">
       </div>
+      <div class="select-wrap" style="margin-top:8px;">
+        <label for="selector-arte" style="display:block;font-size:12px;color:#aaa;margin-bottom:2px;">Otros artwork:</label>
+        <select id="selector-arte" style="display:none;width:100%;" aria-label="Otros artwork de la carta"></select>
+        <p style="margin:4px 0 0;font-size:11.5px;line-height:1.4;color:#888;">
+          Cuidado: la aplicación no puede verificar que cada artwork pertenezca realmente a esta carta.
+          Asegúrate de que la imagen que eliges es de esta carta antes de guardar el PNG.
+        </p>
+      </div>
       <div class="fila-lbl" id="estado"></div>
       <p class="nota">
         Se guarda en la carpeta <b>cartas/</b> del proyecto como PNG 2360×3440,
