@@ -475,7 +475,7 @@
       if (b.count !== a.count) { return b.count - a.count; }
       return a.name.localeCompare(b.name);
     });
-    return res.slice(0, 5);
+    return res.slice(0, 12);
   }
 
   /* Datos de la carta sin traducción: una sola petición a YGOPRODeck por id.
@@ -623,7 +623,7 @@
   function repartirYGOPRODeck(q, nq, cards) {
     var buenos = cards.filter(function (c) { return c.__score >= 2; });
     if (buenos.length) {
-      return Promise.all(buenos.slice(0, 5).map(function (card) {
+      return Promise.all(buenos.slice(0, 12).map(function (card) {
         return obtenerEspanol(card.name).then(function (es) {
           return cartaCompleta(card, es);
         });
