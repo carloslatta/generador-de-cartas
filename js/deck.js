@@ -373,13 +373,28 @@
     "branded despia": "branded",
     "despia": "branded",
     "exodia": "exodia",
-    "exodia deck": "exodia"
+    "exodia deck": "exodia",
+    "ojos azules": "blue eyes",
+    "ojos azul": "blue eyes",
+    "blue eyes": "blue eyes",
+    "ojo azul": "blue eyes",
+    "mago oscuro": "dark magician",
+    "dark magician": "dark magician",
+    "heroes": "hero",
+    "hero": "hero",
+    "vampiro": "vampire",
+    "vampire": "vampire",
+    "gadgets": "gadget",
+    "gadget": "gadget"
   };
 
   function buscarMazos() {
     var q = (search.value || "").trim();
     if (!q) return;
     var bl = banlist.value;
+    var cajaLista = document.getElementById("deck-list");
+    if (cajaLista) { cajaLista.style.display = "none"; cajaLista.innerHTML = ""; }
+    deckInfo.style.display = "none";
     mostrarCargando(true);
     establecerEstado("Buscando mazos para “" + q + "”…");
 
@@ -387,27 +402,91 @@
     var qNormalizado = q.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     var alias = ARQUETIPOS_ALIAS[qNormalizado] || qNormalizado;
 
-    // 1) Mazos REALES publicados en YGOPRODeck (getDecks.php), con listas
-    //    completas de torneos/community (Main/Extra/Side con cantidades reales)
+    // 1) Mazos REALES publicados en YGOPRODeck (getDecks.php): se listan
+    //    todos por nombre; el usuario hace clic para abrir el que quiera.
     apiDecks("getDecks.php?name=" + encodeURIComponent(alias))
       .then(function (lista) {
         if (!Array.isArray(lista) || !lista.length) throw new Error("Sin decks publicados");
-        // Priorizar decks de torneos/meta; luego por más vistos
-        var preferidos = lista.filter(function (d) { return /tournament|meta/i.test(d.format || ""); });
-        var pool = (preferidos.length ? preferidos : lista).slice();
-        pool.sort(function (a, b) { return (b.deck_views || 0) - (a.deck_views || 0); });
-        mostrarDeckPublicado(pool[0], q);
+        mostrarListaDecks(lista, q);
       })
       .catch(function () {
-        establecerEstado("Sin decks publicados para “" + q + "”, buscando cartas…");
-        preguntarArquetipoONombre(q);
+        // Retirada: si el término era español, probar con el nombre EN
+        var en = aliasENdeBusqueda(q);
+        if (en) {
+          apiDecks("getDecks.php?name=" + encodeURIComponent(en))
+            .then(function (lista2) {
+              if (Array.isArray(lista2) && lista2.length) { mostrarListaDecks(lista2, q); return; }
+              buscarDecksPorCarta(q);
+            })
+            .catch(function () { buscarDecksPorCarta(q); });
+        } else {
+          buscarDecksPorCarta(q);
+        }
       });
+  }
+
+  function aliasENdeBusqueda(q) {
+    if (window.Buscador && window.Buscador.buscar) {
+      return window.Buscador.buscar(q).then(function (cartas) {
+        var en = cartas[0] && (cartas[0].nombreEN || cartas[0].nombre);
+        return typeof en === "string" && en.trim() ? en.trim() : "";
+      }).catch(function () { return ""; });
+    }
+    return Promise.resolve("");
+  }
+
+  function buscarDecksPorCarta(q) {
+    // Sin decks publicados: caer al flujo de arquetipo/nombre (auto-deck)
+    establecerEstado("Sin decks publicados para “" + q + "”, buscando cartas…");
+    preguntarArquetipoONombre(q);
   }
 
   function apiDecks(consulta) {
     var fullUrl = "https://api.ygoprodeck.com/api/decks/" + consulta;
     return fetch("/api?url=" + encodeURIComponent(fullUrl), { headers: { "User-Agent": "YGODeckGenerator/1.0" } })
       .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  }
+
+  function totalCartasEnDeck(d) {
+    var t = 0;
+    ["main_deck", "extra_deck", "side_deck"].forEach(function (k) {
+      try { t += (JSON.parse(d[k] || "[]") || []).length; } catch (e) { /* ignorar */ }
+    });
+    return t;
+  }
+
+  function mostrarListaDecks(lista, q) {
+    var caja = document.getElementById("deck-list");
+    if (!caja) { return; }
+    var preferidos = lista.filter(function (d) { return /tournament|meta/i.test(d.format || ""); });
+    var pool = (preferidos.length ? preferidos : lista).slice();
+    pool.sort(function (a, b) { return (b.deck_views || 0) - (a.deck_views || 0); });
+    caja.innerHTML = "";
+    var limit = Math.min(pool.length, 50);
+    pool.slice(0, limit).forEach(function (d) {
+      var it = document.createElement("div");
+      it.className = "deck-item";
+      var detalle = [];
+      if (d.format) detalle.push(d.format);
+      if (d.deck_views != null) detalle.push(d.deck_views + " vistas");
+      var total = totalCartasEnDeck(d);
+      if (total) detalle.push(total + " cartas");
+      it.innerHTML = "<b></b><span class='detalle'></span><span class='flecha'>→</span>";
+      it.querySelector("b").textContent = d.deck_name || (q + " Deck");
+      it.querySelector(".detalle").textContent = detalle.join(" · ");
+      it.addEventListener("click", function () { abrirDeckDeLista(d, q); });
+      caja.appendChild(it);
+    });
+    caja.style.display = "block";
+    empty.style.display = "none";
+    loading.style.display = "none";
+    establecerEstado(limit + " deck" + (limit === 1 ? "" : "s") + " para “" + q + "”. Haz clic en uno para abrirlo.");
+  }
+
+  function abrirDeckDeLista(d, q) {
+    var caja = document.getElementById("deck-list");
+    if (caja) { caja.style.display = "none"; caja.innerHTML = ""; }
+    mostrarDeckPublicado(d, q);
   }
 
   function contarIDs(raw) {
@@ -577,40 +656,47 @@
   function renderDeckPreview(deck) {
     grid.textContent = "";
     var allCards = [];
-    if (deck.main) allCards = allCards.concat(deck.main.map(function (c) { return { id: c.id, count: 1, loc: "Main" }; }));
-    if (deck.extra) allCards = allCards.concat(deck.extra.map(function (c) { return { id: c.id, count: 1, loc: "Extra" }; }));
-    if (deck.side) allCards = allCards.concat(deck.side.map(function (c) { return { id: c.id, count: 1, loc: "Side" }; }));
+    function aplastar(caja, loc) {
+      (deck[caja] || []).forEach(function (c) {
+        for (var i = 0; i < c.count; i++) allCards.push({ id: c.id, loc: loc, n: c.count });
+      });
+    }
+    aplastar("main", "Main");
+    aplastar("extra", "Extra");
+    aplastar("side", "Side");
 
-    var unique = [];
-    var seen = {};
+    var promesas = {};
     allCards.forEach(function (c) {
-      if (!seen[c.id]) { seen[c.id] = true; unique.push(c); }
-    });
-
-    unique.slice(0, 60).forEach(function (c) {
-      var lograda = null;
-      if (deckCardCache[c.id]) {
-        lograda = Promise.resolve(cartaDesdeCache(deckCardCache[c.id]));
-      } else {
-        lograda = api("cardinfo.php?id=" + c.id)
-          .then(function (j) {
-            var card = (j.data || [])[0];
-            if (!card) throw new Error("Carta no encontrada");
-            return obtenerEspanol(card.name).then(function (es) {
-              return { card: card, es: es };
+      var p = promesas[c.id];
+      if (!p) {
+        if (deckCardCache[c.id]) {
+          p = Promise.resolve(cartaDesdeCache(deckCardCache[c.id]));
+        } else {
+          p = api("cardinfo.php?id=" + c.id)
+            .then(function (j) {
+              var card = (j.data || [])[0];
+              if (!card) throw new Error("Carta no encontrada");
+              return obtenerEspanol(card.name).then(function (es) {
+                return { card: card, es: es };
+              });
             });
-          });
+        }
+        promesas[c.id] = p;
       }
-      lograda
-        .then(function (par) {
-          var thumb = dibujarVistaCarta(par.card, par.es, c.loc || "");
-          if (!thumb) return;
-          grid.appendChild(thumb);
-          return esperarFuentes().then(function () {
-            ajustarEscala(thumb);
-          });
-        })
-        .catch(function () {});
+      p.then(function (par) {
+        var thumb = dibujarVistaCarta(par.card, par.es, c.loc);
+        if (!thumb) return;
+        if (c.n > 1) {
+          var cnt = document.createElement("span");
+          cnt.className = "count";
+          cnt.textContent = "×" + c.n;
+          thumb.appendChild(cnt);
+        }
+        grid.appendChild(thumb);
+        return esperarFuentes().then(function () {
+          ajustarEscala(thumb);
+        });
+      }).catch(function () {});
     });
   }
 
