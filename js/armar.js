@@ -1203,11 +1203,19 @@ try {
   }
 
   // Cargar cartas desde IDs de .ydk secuencialmente
-  function cargarDesdeYDK(ids) {
+  function cargarDesdeYDK(ids, carpeta) {
     var idx = 0;
+    var contadores = {}; // id -> nº de copia (para repetidos)
+    function nombreArchivoPara(item, carta) {
+      var total = (contadores[item.id] = (contadores[item.id] || 0) + 1);
+      var base = (carta.nombre || carta.ingles || "carta_" + item.id).replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
+      if (item.section && item.section.indexOf("!") !== 0) base = item.section.replace(/[#!]/g, "") + "_" + base;
+      return total > 1 ? base + "_" + total : base;
+    }
     function siguiente() {
       if (idx >= ids.length) {
-        estado.textContent = "Completado: " + ids.length + " carta(s) cargadas.";
+        estado.textContent = "Completado: " + ids.length + " carta(s)/copia(s) guardadas en cartas/" + (carpeta || "cartas") + ".";
+        fich.value = "";
         return;
       }
       var item = ids[idx];
@@ -1221,30 +1229,42 @@ try {
           return;
         }
         var carta = resultados[0];
-        var titulo = carta.nombre || carta.ingles || item.id;
-        armarCarta(titulo, { auto: true });
-        // Esperar a que se arme y guardar automáticamente
-        var checkArmado = setInterval(function () {
-          var st = document.getElementById("estado");
-          if (st && st.textContent.indexOf("Lista con artwork") !== -1) {
-            clearInterval(checkArmado);
-            // Auto-guardar
-            var nombreArchivo = (carta.nombre || carta.ingles || "carta_" + item.id).replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
-            if (item.section) nombreArchivo = item.section.replace(/[#!]/g, "") + "_" + nombreArchivo;
-            fich.value = nombreArchivo;
-            guardarPNG();
-            // Pequeña pausa antes de la siguiente
-            setTimeout(siguiente, 800);
-          }
-        }, 500);
-        // Timeout de seguridad
-        setTimeout(function () { clearInterval(checkArmado); }, 20000);
+        armarDesdeBuscador(carta, { auto: true });
+        var nombreArchivo = nombreArchivoPara(item, carta);
+        fich.value = nombreArchivo;
+        estado.textContent = "(" + idx + "/" + ids.length + ") Guardando " + nombreArchivo + ".png...";
+        // Guardar y recién seguir con la siguiente carta (secuencial)
+        guardarAuto(nombreArchivo, carpeta).then(function () {
+          setTimeout(siguiente, 300);
+        });
       }).catch(function (err) {
         estado.textContent = "Error con ID " + item.id + ": " + err.message;
         setTimeout(siguiente, 500);
       });
     }
     siguiente();
+  }
+
+  // Como guardarPNG pero sin prompt: carpeta fija (auto-, para .ydk). Resuelve cuando la carta quedó guardada.
+  function guardarAuto(nombreArchivo, carpeta) {
+    return exportarPNG().then(function (dataUrl) {
+      return fetch("/guardar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          carpeta: carpeta || undefined,
+          nombre: nombreArchivo + ".png",
+          png: dataUrl
+        })
+      }).then(function (r) {
+        return r.json();
+      }).then(function (res) {
+        if (!res.ok) throw new Error(res.archivo || "error");
+        estado.textContent = "Guardada: " + nombreArchivo + ".png";
+      });
+    }).catch(function (e) {
+      estado.textContent = "Error al guardar " + nombreArchivo + ": " + e.message;
+    });
   }
 
   /* ---------- eventos ---------- */
@@ -1529,7 +1549,8 @@ try {
           return;
         }
         estado.textContent = "Cargando " + ids.length + " carta(s) desde .ydk...";
-        cargarDesdeYDK(ids);
+        var carpetaYDK = (file.name || "deck").replace(/\.ydk$/i, "").replace(/[\\/:*?"<>|]+/g, "_").trim() || "deck";
+        cargarDesdeYDK(ids, carpetaYDK);
       };
       reader.readAsText(file);
       // Reset para permitir recargar el mismo archivo
